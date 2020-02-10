@@ -1,0 +1,1 @@
+set PATH=F:\Danilo\Programacao\python\ImoveisScrapy\ImoveisScrapy\exe\;%PATH%
