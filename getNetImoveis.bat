@@ -1,5 +1,5 @@
 cd ImoveisScrapy
 
-scrapy crawl NetImoveis -o /../netimoveis.json
+scrapy crawl NetImoveis -o ./../netimoveis.json
 
 cd %~dp0

@@ -11,8 +11,27 @@ import pip
 
 class ZapImoveisSpider(scrapy.Spider):
     name = "ZapImoveis"
-    startUrl = 'https://www.zapimoveis.com.br/aluguel/apartamentos/mg+belo-horizonte/3-quartos/?onde=,Minas%20Gerais,Belo%20Horizonte,,,,BR%3EMinas%20Gerais%3ENULL%3EBelo%20Horizonte,-19.916681,-43.934493&banheiros=2&quartos=3&transacao=Aluguel&vagas=1&precoMaximo=2000&precoMinimo=1000&areaMaxima=150&areaMinima=90&tipoUnidade=Residencial,Apartamento&tipo=Im%C3%B3vel%20usado&pagina=1'
+    startUrl = 'https://www.zapimoveis.com.br/aluguel/apartamentos/mg+belo-horizonte/?__zt=rnk_gz%3Arescore_tiers_no_churn_boost&banheiros=1&onde=,Minas%20Gerais,Belo%20Horizonte,,,,BR%3EMinas%20Gerais%3ENULL%3EBelo%20Horizonte,-19.9166813,-43.9344931%3B,Minas%20Gerais,Betim,,,,BR%3EMinas%20Gerais%3ENULL%3EBetim,-19.967307,-44.20119%3B,Minas%20Gerais,Contagem,,,,BR%3EMinas%20Gerais%3ENULL%3EContagem,-19.9161508,-44.0808763&precoMaximo=2200&precoMinimo=300&tipo=Im%C3%B3vel%20usado&tipoUnidade=Residencial,Apartamento&transacao=Aluguel&pagina=1'
     pageSize = 36
+
+
+    def getPageUrl(self, iPage, cTry=0):
+        # print("Pagina {}...".format(pagina))
+        # url = 'https://www.zapimoveis.com.br/Busca/RetornarBuscaAssincrona/'
+        # # url = 'https://www.zapimoveis.com.br/aluguel/apartamentos/mg+belo-horizonte/#{"precomaximo":"2147483647","parametrosautosuggest":[{"Bairro":"","Zona":"","Cidade":"BELO%20HORIZONTE","Agrupamento":"","Estado":"MG"}],"pagina":9,"ordem":"Relevancia","paginaOrigem":"ResultadoBusca","semente":"893405925","formato":"Lista"}'
+        # print('Current Url: ' + url)
+        # # 'https://www.zapimoveis.com.br/venda/apartamentos/mg+belo-horizonte/3-quartos/#{"precomaximo":"400000","filtrodormitorios":"3;","areautilminima":"60","parametrosautosuggest":[{"Bairro":"","Zona":"","Cidade":"BELO%20HORIZONTE","Agrupamento":"","Estado":"MG"}],"pagina":"'+str(pagina)+'","ordem":"Relevancia","paginaOrigem":"ResultadoBusca","semente":"202082721","formato":"Lista"}'
+        # data = 'tipoOferta=Imovel&paginaAtual=' + str(
+        #     pagina) + '&ordenacaoSelecionada=Relevancia&pathName=%2Faluguel%2Fapartamentos%2Fmg%2Bbelo-horizonte%2F&hashFragment=%7B%22precomaximo%22%3A%222147483647%22%2C%22parametrosautosuggest%22%3A%5B%7B%22Bairro%22%3A%22%22%2C%22Zona%22%3A%22%22%2C%22Cidade%22%3A%22BELO+HORIZONTE%22%2C%22Agrupamento%22%3A%22%22%2C%22Estado%22%3A%22MG%22%7D%5D%2C%22pagina%22%3A' + str(
+        #     pagina) + '%2C%22ordem%22%3A%22Relevancia%22%2C%22paginaOrigem%22%3A%22ResultadoBusca%22%2C%22semente%22%3A%22893405925%22%2C%22formato%22%3A%22Lista%22%7D&formato=Lista'
+        # return {'pagina': pagina, 'try': cTry, 'url': url,
+        #         'rq': self.executor.submit(requests.post, url, data=data, headers=self.agent, proxies=self.getProxy(),
+        #                                    timeout=25)}
+        #url = 'https://www.zapimoveis.com.br/aluguel/apartamentos/mg+belo-horizonte/2-quartos/#{%22filtrodormitorios%22:%223;2;4;%22,%22areautilminima%22:%2260%22,%22areautilmaxima%22:%22180%22,%22possuiendereco%22:%22True%22,%22parametrosautosuggest%22:[{%22Bairro%22:%22%22,%22Zona%22:%22%22,%22Cidade%22:%22BELO%20HORIZONTE%22,%22Agrupamento%22:%22%22,%22Estado%22:%22MG%22}],%22pagina%22:%221%22,%22paginaOrigem%22:%22ResultadoBusca%22,%22semente%22:%22306391789%22,%22formato%22:%22Lista%22}'
+        # 'https://www.zapimoveis.com.br/venda/apartamentos/mg+belo-horizonte/3-quartos/#{"precomaximo":"400000","filtrodormitorios":"3;","areautilminima":"60","parametrosautosuggest":[{"Bairro":"","Zona":"","Cidade":"BELO%20HORIZONTE","Agrupamento":"","Estado":"MG"}],"pagina":"'+str(pagina)+'","ordem":"Relevancia","paginaOrigem":"ResultadoBusca","semente":"202082721","formato":"Lista"}'
+        return 'https://glue-api.zapimoveis.com.br/v2/listings?unitSubTypes=UnitSubType_NONE,DUPLEX,TRIPLEX&unitTypes=APARTMENT&usageTypes=RESIDENTIAL&unitTypesV3=APARTMENT&text=Apartamento&from=48&categoryPage=RESULT&bathrooms=1&business=RENTAL&priceMax=2200&priceMin=300&parentId=null&listingType=USED&portal=ZAP3&size=24&includeFields=search(result(listings(listing,account(id,name,phones,logoUrl,licenseNumber,showAddress,legacyVivarealId,legacyZapId),medias,accountLink,link)),totalCount),page,fullUriFragments,developments(search(result(listings(listing,account(id,name,phones,logoUrl,licenseNumber,showAddress,legacyVivarealId,legacyZapId),medias,accountLink,link)),totalCount)),superPremium(search(result(listings(listing,account(id,name,phones,logoUrl,licenseNumber,showAddress,legacyVivarealId,legacyZapId),medias,accountLink,link)),totalCount)),owners(search(result(listings(listing,account(id,name,phones,logoUrl,licenseNumber,showAddress,legacyVivarealId,legacyZapId),medias,accountLink,link)),totalCount)),nearby(search(result(listings(listing,account(id,name,phones,logoUrl,licenseNumber,showAddress,legacyVivarealId,legacyZapId),medias,accountLink,link)),totalCount)),expansion(search(result(listings(listing,account(id,name,phones,logoUrl,licenseNumber,showAddress,legacyVivarealId,legacyZapId),medias,accountLink,link)),totalCount))&developmentsSize=3&superPremiumSize=3&addressCountry=,,&addressState=Minas+Gerais,Minas+Gerais,Minas+Gerais&addressCity=Belo+Horizonte,Betim,Contagem&addressZone=,,&addressNeighborhood=,,&addressStreet=,,&addressLocationId=BR%3EMinas+Gerais%3ENULL%3EBelo+Horizonte,BR%3EMinas+Gerais%3ENULL%3EBetim,BR%3EMinas+Gerais%3ENULL%3EContagem&addressPointLat=-19.9166813,-19.967307,-19.9161508&addressPointLon=-43.9344931,-44.20119,-44.0808763&__zt=&page=' + str(iPage)
+        # return 'https://glue-api.zapimoveis.com.br/v2/listings?addressCountry=&addressState=Minas+Gerais&addressCity=Belo+Horizonte&addressZone=&addressNeighborhood=&addressStreet=&addressLocationId=BR%3EMinas+Gerais%3ENULL%3EBelo+Horizonte&addressPointLat=-19.916681&addressPointLon=-43.934493&unitSubTypes=UnitSubType_NONE,DUPLEX,TRIPLEX&unitTypes=APARTMENT&usageTypes=RESIDENTIAL&unitTypesV3[]=APARTMENT&text=Apartamento&size=' + str(self.pageSize) + '&from=' + str(self.pageSize * iPage) + '&categoryPage=RESULT&bathrooms=2&bedrooms=3&business=RENTAL&parkingSpaces=1&priceMax=2200&priceMin=1000&usableAreasMax=150&usableAreasMin=90&parentId=null&listingType=USED&includeFields=search,page,fullUriFragments,developments,superPremium&developmentsSize=3&superPremiumSize=3&__zt=&page=' + str(iPage)
+
 
     @staticmethod
     def install(package):
@@ -69,7 +88,7 @@ class ZapImoveisSpider(scrapy.Spider):
             #"accept-encoding": "gzip, deflate, br",
             "accept-language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
             "origin": "https://www.zapimoveis.com.br",
-            "referer": "https://www.zapimoveis.com.br/aluguel/apartamentos/mg+belo-horizonte/3-quartos/?onde=,Minas%20Gerais,Belo%20Horizonte,,,,BR%3EMinas%20Gerais%3ENULL%3EBelo%20Horizonte,-19.916681,-43.934493&banheiros=2&quartos=3&transacao=Aluguel&vagas=1&precoMaximo=2000&precoMinimo=1000&areaMaxima=150&areaMinima=90&tipoUnidade=Residencial,Apartamento&tipo=Im%C3%B3vel%20usado&pagina=" + str(iPage),
+            "referer": 'https://www.zapimoveis.com.br/aluguel/apartamentos/mg+belo-horizonte/?__zt=rnk_gz%3Arescore_tiers_no_churn_boost&banheiros=1&onde=,Minas%20Gerais,Belo%20Horizonte,,,,BR%3EMinas%20Gerais%3ENULL%3EBelo%20Horizonte,-19.9166813,-43.9344931%3B,Minas%20Gerais,Betim,,,,BR%3EMinas%20Gerais%3ENULL%3EBetim,-19.967307,-44.20119%3B,Minas%20Gerais,Contagem,,,,BR%3EMinas%20Gerais%3ENULL%3EContagem,-19.9161508,-44.0808763&precoMaximo=2200&precoMinimo=300&tipo=Im%C3%B3vel%20usado&tipoUnidade=Residencial,Apartamento&transacao=Aluguel&pagina=' + str(iPage),
             # "sec-fetch-dest": "empty",
             # "sec-fetch-mode": "cors",
             # "sec-fetch-site": "same-site",
@@ -88,22 +107,6 @@ class ZapImoveisSpider(scrapy.Spider):
                     defaultCookie[key] = curDomain[key]
         return defaultCookie
 
-    def getPageUrl(self, iPage, cTry=0):
-        # print("Pagina {}...".format(pagina))
-        # url = 'https://www.zapimoveis.com.br/Busca/RetornarBuscaAssincrona/'
-        # # url = 'https://www.zapimoveis.com.br/aluguel/apartamentos/mg+belo-horizonte/#{"precomaximo":"2147483647","parametrosautosuggest":[{"Bairro":"","Zona":"","Cidade":"BELO%20HORIZONTE","Agrupamento":"","Estado":"MG"}],"pagina":9,"ordem":"Relevancia","paginaOrigem":"ResultadoBusca","semente":"893405925","formato":"Lista"}'
-        # print('Current Url: ' + url)
-        # # 'https://www.zapimoveis.com.br/venda/apartamentos/mg+belo-horizonte/3-quartos/#{"precomaximo":"400000","filtrodormitorios":"3;","areautilminima":"60","parametrosautosuggest":[{"Bairro":"","Zona":"","Cidade":"BELO%20HORIZONTE","Agrupamento":"","Estado":"MG"}],"pagina":"'+str(pagina)+'","ordem":"Relevancia","paginaOrigem":"ResultadoBusca","semente":"202082721","formato":"Lista"}'
-        # data = 'tipoOferta=Imovel&paginaAtual=' + str(
-        #     pagina) + '&ordenacaoSelecionada=Relevancia&pathName=%2Faluguel%2Fapartamentos%2Fmg%2Bbelo-horizonte%2F&hashFragment=%7B%22precomaximo%22%3A%222147483647%22%2C%22parametrosautosuggest%22%3A%5B%7B%22Bairro%22%3A%22%22%2C%22Zona%22%3A%22%22%2C%22Cidade%22%3A%22BELO+HORIZONTE%22%2C%22Agrupamento%22%3A%22%22%2C%22Estado%22%3A%22MG%22%7D%5D%2C%22pagina%22%3A' + str(
-        #     pagina) + '%2C%22ordem%22%3A%22Relevancia%22%2C%22paginaOrigem%22%3A%22ResultadoBusca%22%2C%22semente%22%3A%22893405925%22%2C%22formato%22%3A%22Lista%22%7D&formato=Lista'
-        # return {'pagina': pagina, 'try': cTry, 'url': url,
-        #         'rq': self.executor.submit(requests.post, url, data=data, headers=self.agent, proxies=self.getProxy(),
-        #                                    timeout=25)}
-        #url = 'https://www.zapimoveis.com.br/aluguel/apartamentos/mg+belo-horizonte/2-quartos/#{%22filtrodormitorios%22:%223;2;4;%22,%22areautilminima%22:%2260%22,%22areautilmaxima%22:%22180%22,%22possuiendereco%22:%22True%22,%22parametrosautosuggest%22:[{%22Bairro%22:%22%22,%22Zona%22:%22%22,%22Cidade%22:%22BELO%20HORIZONTE%22,%22Agrupamento%22:%22%22,%22Estado%22:%22MG%22}],%22pagina%22:%221%22,%22paginaOrigem%22:%22ResultadoBusca%22,%22semente%22:%22306391789%22,%22formato%22:%22Lista%22}'
-        # 'https://www.zapimoveis.com.br/venda/apartamentos/mg+belo-horizonte/3-quartos/#{"precomaximo":"400000","filtrodormitorios":"3;","areautilminima":"60","parametrosautosuggest":[{"Bairro":"","Zona":"","Cidade":"BELO%20HORIZONTE","Agrupamento":"","Estado":"MG"}],"pagina":"'+str(pagina)+'","ordem":"Relevancia","paginaOrigem":"ResultadoBusca","semente":"202082721","formato":"Lista"}'
-        return 'https://glue-api.zapimoveis.com.br/v2/listings?addressCountry=&addressState=Minas+Gerais&addressCity=Belo+Horizonte&addressZone=&addressNeighborhood=&addressStreet=&addressLocationId=BR%3EMinas+Gerais%3ENULL%3EBelo+Horizonte&addressPointLat=-19.916681&addressPointLon=-43.934493&unitSubTypes=UnitSubType_NONE,DUPLEX,TRIPLEX&unitTypes=APARTMENT&usageTypes=RESIDENTIAL&unitTypesV3[]=APARTMENT&text=Apartamento&size=' + str(self.pageSize) + '&from=' + str(self.pageSize * iPage) + '&categoryPage=RESULT&bathrooms=2&bedrooms=3&business=RENTAL&parkingSpaces=1&priceMax=2000&priceMin=1000&usableAreasMax=150&usableAreasMin=90&parentId=null&listingType=USED&includeFields=search,page,fullUriFragments,developments,superPremium&developmentsSize=3&superPremiumSize=3&__zt=&page=' + str(iPage)
-
 
 
     def start_requests(self):
@@ -112,7 +115,7 @@ class ZapImoveisSpider(scrapy.Spider):
         # # driver.get(self.startUrl)
         # # cookies = driver.get_cookies()
         startResp = requests.get(self.startUrl, headers=self.getDefaultHeaders(1))
-        totalImoveis = int(startResp.text.split("js-summary-title heading-regular heading-regular__bold align-left results__title\">")[1].split(" apartamentos ")[0].replace(",", "").replace(".", ""))
+        totalImoveis = int(startResp.text.split("js-summary-title heading-regular heading-regular__bold align-left results__title\">")[1].split(" apartamentos ")[0].replace(",", "").replace("<strong>","").replace(".", ""))
         logging.warning("Total de Imoveis: " + str(totalImoveis))
         logging.warning(startResp.cookies)
         for pageInd in range(int(math.floor(totalImoveis/self.pageSize))):

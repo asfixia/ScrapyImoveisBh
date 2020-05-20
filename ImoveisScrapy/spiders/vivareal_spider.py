@@ -12,12 +12,13 @@ import pip
 #pip install selenium
 class VivaRealSpider(scrapy.Spider):
     name = "VivaReal"
-    startUrl = "https://www.vivareal.com.br/aluguel/minas-gerais/belo-horizonte/apartamento_residencial/#area-ate=150&area-desde=90&banheiros=2&onde=BR-Minas_Gerais-NULL-Belo_Horizonte&preco-ate=2000&preco-desde=1000&quartos=3&tipos=apartamento_residencial&vagas=1"
+    startUrl = "https://www.vivareal.com.br/aluguel/minas-gerais/belo-horizonte/#area-ate=250&area-desde=40&banheiros=1&onde=BR-Minas_Gerais-NULL-Belo_Horizonte,BR-Minas_Gerais-NULL-Contagem,BR-Minas_Gerais-NULL-Betim&preco-ate=2200&preco-desde=300&tipos=apartamento_residencial,casa_residencial,condominio_residencial,flat_residencial"
     pageSize = 36
 
     def getPageUrl(self, iPage):
-        return 'https://glue-api.vivareal.com/v2/listings?addressCity=Belo%20Horizonte&addressLocationId=BR%3EMinas%20Gerais%3ENULL%3EBelo%20Horizonte&addressNeighborhood=&addressState=Minas%20Gerais&addressCountry=Brasil&addressStreet=&addressZone=&addressPointLat=-19.916681&addressPointLon=-43.934493&usableAreasMin=90&usableAreasMax=150&bathrooms=2&bedrooms=3&business=RENTAL&facets=amenities&unitTypes=APARTMENT&unitSubTypes=UnitSubType_NONE%2CDUPLEX%2CLOFT%2CSTUDIO%2CTRIPLEX&unitTypesV3=APARTMENT&usageTypes=RESIDENTIAL&priceMin=1000&priceMax=2000&parkingSpaces=1&listingType=USED&parentId=null&categoryPage=RESULT&includeFields=page%2Csearch%2Cexpansion%2Cnearby%2CfullUriFragments%2Caccount&q=&developmentsSize=5&__vt=&size=' + str(self.pageSize) + '&from=' + str(self.pageSize * iPage) + "&page=" + str(iPage)
-        #return 'https://glue-api.vivareal.com/v2/listings?addressCity=Belo%20Horizonte&addressLocationId=BR%3EMinas%20Gerais%3ENULL%3EBelo%20Horizonte&addressNeighborhood=&addressState=Minas%20Gerais&addressCountry=BR&addressStreet=&addressZone=&addressPointLat=-19.91615&addressPointLon=-44.080876&usableAreasMin=90&usableAreasMax=150&bathrooms=2&bedrooms=3&business=RENTAL&facets=amenities&unitTypes=APARTMENT&unitSubTypes=UnitSubType_NONE%2CDUPLEX%2CLOFT%2CSTUDIO%2CTRIPLEX&unitTypesV3=APARTMENT&usageTypes=RESIDENTIAL&rentalTotalPriceMin=1000&rentalTotalPriceMax=2000&parkingSpaces=1&listingType=USED&parentId=null&categoryPage=RESULT&includeFields=page%2Csearch%2Cexpansion%2Cnearby%2CfullUriFragments%2Caccount&size=' + str(self.pageSize) + '&from=' + str(self.pageSize * iPage) + '&sort=pricingInfos.rentalInfo.monthlyRentalTotalPrice%20ASC%20sortFilter%3ApricingInfos.businessType%3D%27RENTAL%27&q=&developmentsSize=5&__vt=&page=' + str(iPage)
+        return 'https://glue-api.vivareal.com/v2/listings?addressCity=Belo%20Horizonte%2CBetim%2CContagem&addressLocationId=BR%3EMinas%20Gerais%3ENULL%3EBelo%20Horizonte%2CBR%3EMinas%20Gerais%3ENULL%3EBetim%2CBR%3EMinas%20Gerais%3ENULL%3EContagem&addressNeighborhood=%2C%2C&addressState=Minas%20Gerais%2CMinas%20Gerais%2CMinas%20Gerais&addressCountry=BR%2CBR%2CBR&addressStreet=%2C%2C&addressZone=%2C%2C&addressPointLat=-19.9166813%2C-19.9673078%2C-19.91615&addressPointLon=-43.9344931%2C-44.2011904%2C-44.080876&usableAreasMin=40&usableAreasMax=250&bathrooms=1&business=RENTAL&facets=amenities&unitTypes=APARTMENT%2CHOME%2CCONDOMINIUM%2CFLAT&unitSubTypes=%7C%7C%7C&unitTypesV3=%2C%2C%2C&usageTypes=%2C%2C%2C&priceMin=300&priceMax=2200&listingType=USED&parentId=null&categoryPage=RESULT&includeFields=page%2Csearch%2Cexpansion%2Cnearby%2CfullUriFragments%2Caccount%2Cowners%2Cboosted&q=&developmentsSize=5&__vt=&size=' + str(self.pageSize) + '&from=' + str(self.pageSize * iPage) + '&page=' + str(iPage)
+        # return 'https://glue-api.vivareal.com/v2/listings?addressCity=Belo%20Horizonte%2CContagem%2CBetim&addressLocationId=BR%3EMinas%20Gerais%3ENULL%3EBelo%20Horizonte%3EBarrios%3EVenda%20Nova%2CBR%3EMinas%20Gerais%3ENULL%3EContagem%2CBR%3EMinas%20Gerais%3ENULL%3EBetim&addressNeighborhood=Venda%20Nova%2C%2C&addressState=Minas%20Gerais%2CMinas%20Gerais%2CMinas%20Gerais&addressCountry=BR%2CBR%2CBR&addressStreet=%2C%2C&addressZone=Bairros%2C%2C&addressPointLat=-19.815959%2C-19.91615%2C-19.9673078&addressPointLon=-43.952023%2C-44.080876%2C-44.2011904&usableAreasMin=45&usableAreasMax=250&bathrooms=1&business=RENTAL&facets=amenities&unitTypes=APARTMENT%2CHOME%2CHOME%2CAPARTMENT&unitSubTypes=UnitSubType_NONE%2CDUPLEX%2CLOFT%2CSTUDIO%2CTRIPLEX%7CUnitSubType_NONE%2CSINGLE_STOREY_HOUSE%2CVILLAGE_HOUSE%2CKITNET%7CCONDOMINIUM%7CFLAT&unitTypesV3=APARTMENT%2CHOME%2CCONDOMINIUM%2CFLAT&usageTypes=RESIDENTIAL%2CRESIDENTIAL%2CRESIDENTIAL%2CRESIDENTIAL&priceMin=300&priceMax=2200&listingType=USED&parentId=null&categoryPage=RESULT&includeFields=page%2Csearch%2Cexpansion%2Cnearby%2CfullUriFragments%2Caccount%2Cowners%2Cboosted&size=' +str(self.pageSize)+ '&from='+str(self.pageSize * iPage)+'&q=&developmentsSize=5&__vt=' + "&page=" + str(iPage)
+        # return 'https://glue-api.vivareal.com/v2/listings?addressCity=Belo%20Horizonte&addressLocationId=BR%3EMinas%20Gerais%3ENULL%3EBelo%20Horizonte&addressNeighborhood=&addressState=Minas%20Gerais&addressCountry=BR&addressStreet=&addressZone=&addressPointLat=-19.91615&addressPointLon=-44.080876&usableAreasMin=90&usableAreasMax=150&bathrooms=2&bedrooms=3&business=RENTAL&facets=amenities&unitTypes=APARTMENT&unitSubTypes=UnitSubType_NONE%2CDUPLEX%2CLOFT%2CSTUDIO%2CTRIPLEX&unitTypesV3=APARTMENT&usageTypes=RESIDENTIAL&rentalTotalPriceMin=1000&rentalTotalPriceMax=2000&parkingSpaces=1&listingType=USED&parentId=null&categoryPage=RESULT&includeFields=page%2Csearch%2Cexpansion%2Cnearby%2CfullUriFragments%2Caccount&size=' + str(self.pageSize) + '&from=' + str(self.pageSize * iPage) + '&sort=pricingInfos.rentalInfo.monthlyRentalTotalPrice%20ASC%20sortFilter%3ApricingInfos.businessType%3D%27RENTAL%27&q=&developmentsSize=5&__vt=&page=' + str(iPage)
 
 
     def getDefaultHeaders(self):
@@ -49,7 +50,7 @@ class VivaRealSpider(scrapy.Spider):
         from selenium import webdriver
         driver = webdriver.Firefox()
         driver.get(self.startUrl)
-        time.sleep(25)
+        time.sleep(10)
         # cookies = driver.get_cookies()
         startResp = requests.get(self.startUrl, headers=self.getDefaultHeaders())
         totalImoveis = int(
@@ -58,6 +59,8 @@ class VivaRealSpider(scrapy.Spider):
                 .split('class="results-summary__count js-total-records">')[
                 1].split("</strong>")[0].replace(",", "").replace(".", ""))
         logging.warning("Total de Imoveis: " + str(totalImoveis))
+        driver.close()
+        driver.quit()
         logging.warning(startResp.cookies)
         for pageInd in range(int(math.floor(totalImoveis / self.pageSize))):
             yield scrapy.Request(url=self.getPageUrl(pageInd + 1), callback=self.parse,
@@ -121,7 +124,7 @@ class VivaRealSpider(scrapy.Spider):
             yield {
                 'lat': item["listing"]["address"]["point"]["lat"],
                 'long': item["listing"]["address"]["point"]["lon"],
-                'url': "www.zapimoveis.com.br/" + item["link"]["href"],
+                'url': "www.vivareal.com.br/" + item["link"]["href"],
                 'video': self.getVideoItem(item),
                 'thumb': self.getThumbItem(item),
                 '360': "",
