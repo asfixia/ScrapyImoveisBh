@@ -3,6 +3,7 @@ from collections import defaultdict
 import scrapy
 import requests
 import json
+import time
 import math
 import logging
 import pip
@@ -126,6 +127,7 @@ class NetImoveisSpider(scrapy.Spider):
         totalImoveis = respJson["totalDeRegistros"]
         logging.warning("TOTAL DE registros: " + str(totalImoveis))
         for pageInd in range(int(math.floor(totalImoveis/self.perPage))):
+            time.sleep(15)
             yield scrapy.Request(url=self.getPageUrl(pageInd + 1), callback=self.parse)
             #yield scrapy.Request(url=self.getPageUrl(1), cookies=self.getCookie(), headers=self.getDefaultHeaders(), callback=self.parse)
 
