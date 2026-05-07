@@ -1,5 +1,9 @@
-cd ImoveisScrapy
+cd /d "%~dp0"
+call setEnvironment.bat
+if exist ".venv\Scripts\activate.bat" call .venv\Scripts\activate.bat
 
-scrapy crawl ZapImoveis -o ./../zapimoveis.json
+rem cd ImoveisScrapy
+rem scrapy crawl ZapImoveis -o ./../zapimoveis.json
 
-cd %~dp0
+
+python zap_botasaurus_client.py 

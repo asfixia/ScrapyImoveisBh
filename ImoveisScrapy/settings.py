@@ -57,6 +57,13 @@ ROBOTSTXT_OBEY = True
 #    'ImoveisScrapy.middlewares.ImoveisscrapyDownloaderMiddleware': 543,
 #}
 
+# Scrapy-Playwright for JS-rendered pages (NetImoveis)
+#DOWNLOAD_HANDLERS = {
+#    "http": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
+#    "https": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
+#}
+#TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
+
 # Enable or disable extensions
 # See https://docs.scrapy.org/en/latest/topics/extensions.html
 #EXTENSIONS = {
