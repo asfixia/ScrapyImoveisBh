@@ -13,6 +13,8 @@ QuintoAndarSearchType = Literal["RENT", "SALE"]
 from botasaurus.request import Request, request
 from botasaurus.soupify import soupify
 
+from scrape_output import output_json_path
+
 from zap_parser import BH_VIEWPORT, MAX_PAGES, ZapMapViewport
 
 LOG = logging.getLogger(__name__)
@@ -444,9 +446,7 @@ def quintoandar_get_items(
     imv_data_sale = _scrape_quintoandar(request_obj, search_type="SALE")
     imv_data_rent = _scrape_quintoandar(request_obj, search_type="RENT")
     all_imv_data = {**imv_data_sale, **imv_data_rent}
-    base_dir = Path(__file__).resolve().parent
-    stamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-    out_path = base_dir / f"{stamp}_quintoandar.json"
+    out_path = output_json_path("quintoandar")
     out_path.write_text(
         json.dumps(all_imv_data, ensure_ascii=False, indent=2),
         encoding="utf-8",

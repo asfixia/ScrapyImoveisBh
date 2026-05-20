@@ -24,6 +24,7 @@ class VivarealBusiness(str, Enum):
 
 import scrapy
 from botasaurus.request import Request, request
+from scrape_output import output_json_path
 from zap_parser import BH_VIEWPORT, ZapMapViewport
 
 LOG = logging.getLogger(__name__)
@@ -501,9 +502,10 @@ class VivaRealSpider(scrapy.Spider):
             }
         )
         
-        LOG.info("[VivaReal output] wrote %s listing(s)", len(listings))
-        todaystr = datetime.now().strftime('%Y-%m-%d_%H-%M')
-        json.dump(listings, open(todaystr + '_vivareal.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+        out_path = output_json_path("vivareal")
+        with open(out_path, "w", encoding="utf-8") as fp:
+            json.dump(listings, fp, ensure_ascii=False, indent=2)
+        LOG.info("[VivaReal output] wrote %s listing(s) to %s", len(listings), out_path)
         for idx, raw_item in enumerate(listings or []):
             try:
                 yield _get_item(raw_item)

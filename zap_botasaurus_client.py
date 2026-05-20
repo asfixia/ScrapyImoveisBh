@@ -8,6 +8,7 @@ from pathlib import Path
 from botasaurus.request import Request, request
 from botasaurus.soupify import soupify
 
+from scrape_output import output_json_path
 from zap_parser import (
     BH_VIEWPORT,
     MAX_PAGES,
@@ -254,9 +255,7 @@ def zap_listing_urls(request_obj: Request, data):
     imv_data_rent = _scrape_zap_transaction(request_obj, TRANSACAO_ALUGUEL)
     all_imv_data = {**imv_data_sale, **imv_data_rent}
     
-    base_dir = Path(__file__).resolve().parent
-    stamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-    out_path = base_dir / f"{stamp}_zapimoveis.json"
+    out_path = output_json_path("zapimoveis")
     out_path.write_text(
         json.dumps(all_imv_data, ensure_ascii=False, indent=2),
         encoding="utf-8",

@@ -26,6 +26,8 @@ from urllib.parse import urljoin
 import scrapy
 from botasaurus.request import Request, request
 
+from scrape_output import output_json_path
+
 LOG = logging.getLogger(__name__)
 
 # Retries for Botasaurus HTTP (same spirit as zap_botasaurus_client.request_get_with_retry)
@@ -426,7 +428,7 @@ class CasaMineiraSpider(scrapy.Spider):
             yield it
 
     def closed(self, reason):
-        out_path = f"{datetime.now().strftime('%Y-%m-%d_%H-%M')}_casamineira.json"
+        out_path = output_json_path("casamineira")
         with open(out_path, "w", encoding="utf-8") as fp:
             json.dump(
                 self._accumulated_listings,

@@ -21,6 +21,8 @@ import requests
 import scrapy
 from scrapy.http import HtmlResponse
 import re
+
+from scrape_output import output_json_path
 # User-Agent for HTTP requests (no browser)
 DEFAULT_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", "x-requested-with": "XMLHttpRequest"}
 #EXPANDIFY_URL_TEMPLATE = "https://widget.expandify.com.br/v2/netimoveis.com/{}?cacheVersion=2.0.4&version=2"
@@ -175,7 +177,7 @@ class NetImoveisSpider(scrapy.Spider):
         return ("https://www.netimoveis.com/venda/" + details_url) if details_url else None
 
     def closed(self, reason):
-        out_path = f"{datetime.now().strftime("%Y-%m-%d_%H-%M")}_netimoveis.json"
+        out_path = output_json_path("netimoveis")
         with open(out_path, "w", encoding="utf-8") as fp:
             json.dump(
                 self._accumulated_listings,
