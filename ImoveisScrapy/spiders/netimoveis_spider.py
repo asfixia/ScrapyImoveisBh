@@ -19,8 +19,8 @@ from urllib.parse import urljoin
 
 import requests
 import scrapy
-import re
 from scrapy.http import HtmlResponse
+import re
 # User-Agent for HTTP requests (no browser)
 DEFAULT_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", "x-requested-with": "XMLHttpRequest"}
 #EXPANDIFY_URL_TEMPLATE = "https://widget.expandify.com.br/v2/netimoveis.com/{}?cacheVersion=2.0.4&version=2"

@@ -176,11 +176,11 @@ def _scrape_zap_transaction(
     time.sleep(PAGE_DELAY_SMALL)
     total_pages = sum(math.ceil(imv_quantity / PAGE_SIZE) for _, imv_quantity in leaf_viewports)
 
+    total_found = 0
+    current_page = 0
     all_imv_data: dict[str, dict] = {}
     for vp_idx, (leaf_vp, imv_quantity) in enumerate(leaf_viewports):
-        current_page = 0
         total_expected = 0
-        total_found = 0
         qnt_pages = min(max(1, math.ceil(imv_quantity / PAGE_SIZE)), MAX_PAGES)
         for page in range(0, qnt_pages + 1):
             current_page += 1

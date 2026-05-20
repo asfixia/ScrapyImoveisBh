@@ -8,29 +8,8 @@ import psycopg
 SQL_EXPORT_QUERY = """
 SELECT jsonb_agg(to_jsonb(q))::text AS result
 FROM (
-	SELECT
-	'' as "360",
-	COALESCE(banheiros, 0) banheiros,
-	COALESCE(quartos, 0) quartos,
-	COALESCE(iptu, 0) iptu,
-	'' as "full",
-	0 video,
-	COALESCE(compra, 0) venda,
-	id,
-	COALESCE((json_general_data::jsonb -> 'image') ->> 0, '') thumb,
-	area,
-	COALESCE(lon, 0) as long,
-	COALESCE(replace(json_general_data::jsonb ->> 'description', '\n', E'\n'), '') as descricao,
-	CASE WHEN ((json_point_data::jsonb -> 'prices') ->> 'period') = 'MONTHLY' THEN 12 else 1 END as iptu_parcelas,
-	'2020-09-14-11:27:48' as "gDate",
-	COALESCE(bairro, '') bairro,
-	COALESCE(aluguel, 0) aluguel,
-	COALESCE(condominio, 0) condominio,
-	COALESCE(lat, 0) lat,
-	'' as "data",
-	CONCAT_WS(', ', estado, cidade, endereco_rua, endereco_numero) logradouro,
-	details_url url
-	FROM b_dados.zap_imoveis
+	SELECT *
+	FROM b_dados.imoveis_unificados
 ) as q;
 """
 
@@ -47,8 +26,8 @@ def export_query_to_json(dsn: str, output_path: str) -> Path:
     result_text = row[0] if row else None
     payload = json.loads(result_text) if result_text else []
 
-    if len(payload) != 74086:
-        return None
+    #if len(payload) != 74086:
+    #    return None
 
     with target.open("w", encoding="utf-8") as file:
         json.dump(payload, file, ensure_ascii=False, indent=None)

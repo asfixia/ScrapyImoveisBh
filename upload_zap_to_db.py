@@ -104,6 +104,49 @@ def _chunks(rows: Sequence[dict[str, Any]], size: int) -> Iterable[Sequence[dict
         yield rows[i : i + size]
 
 
+def casamineira_extract_row(obj: dict[str, Any]) -> dict[str, Any]:
+    listing = obj.get("listing") if isinstance(obj.get("listing"), dict) else {}
+    link = obj.get("link") if isinstance(obj.get("link"), dict) else {}
+    address = listing.get("address") if isinstance(listing.get("address"), dict) else {}
+    rental: dict[str, Any] | None = None
+    sale: dict[str, Any] | None = None
+    for p in listing.get("pricingInfos") or []:
+        if not isinstance(p, dict):
+            continue
+        bt = p.get("businessType")
+        if bt == "RENTAL":
+            rental = p
+        elif bt == "SALE":
+            sale = p
+    pt = address.get("point") if isinstance(address.get("point"), dict) else {}
+    lat = pt.get("approximateLat") if pt.get("approximateLat") is not None else pt.get("lat")
+    lon = pt.get("approximateLon") if pt.get("approximateLon") is not None else pt.get("lon")
+    href = link.get("href") or ""
+    base = "https://www.casamineira.com.br"
+    if isinstance(href, str) and href.startswith("/"):
+        url = base + href
+    else:
+        url = href or None
+    return {
+        "id": str(listing.get("id") or ""),
+        "title": listing.get("title"),
+        "description": listing.get("description"),
+        "city": address.get("city"),
+        "neighborhood": address.get("neighborhood"),
+        "state_acronym": address.get("stateAcronym"),
+        "street": address.get("street"),
+        "lat": lat,
+        "lon": lon,
+        "price_rental": rental.get("price") if rental else None,
+        "price_sale": sale.get("price") if sale else None,
+        "monthly_condo": (rental.get("monthlyCondoFee") if rental else None)
+        or (sale.get("monthlyCondoFee") if sale else None),
+        "yearly_iptu": (rental.get("yearlyIptu") if rental else None)
+        or (sale.get("yearlyIptu") if sale else None),
+        "url": url,
+        "payload": Json(obj),
+    }
+
 def vivareal_extract_row(obj: dict[str, Any]) -> dict[str, Any]:
     listing = obj.get("listing") if isinstance(obj.get("listing"), dict) else {}
     link = obj.get("link") if isinstance(obj.get("link"), dict) else {}
@@ -307,6 +350,60 @@ def insert_netimoveis_imoveis(json_filepath: str, dsn: str) -> None:
     print(f"Inserted/updated {len(rows)} records into b_dados.netimoveis_imoveis.")
 
 
+def insert_casamineira_imoveis(json_filepath: str, dsn: str) -> None:
+    path = Path(json_filepath)
+    with path.open("r", encoding="utf-8") as file:
+        data = json.load(file)
+
+    if not isinstance(data, list):
+        raise ValueError("CasaMineira JSON root must be an array of listing payloads.")
+
+    sql = """
+        INSERT INTO b_dados.casamineira_imoveis (
+            id, title, description, city, neighborhood, state_acronym, street,
+            lat, lon, price_rental, price_sale, monthly_condo, yearly_iptu, url, payload, updated_at
+        )
+        VALUES (
+            %(id)s, %(title)s, %(description)s, %(city)s, %(neighborhood)s, %(state_acronym)s,
+            %(street)s, %(lat)s, %(lon)s, %(price_rental)s, %(price_sale)s,
+            %(monthly_condo)s, %(yearly_iptu)s, %(url)s, %(payload)s, NOW()
+        )
+        ON CONFLICT (id) DO UPDATE SET
+            title = EXCLUDED.title,
+            description = EXCLUDED.description,
+            city = EXCLUDED.city,
+            neighborhood = EXCLUDED.neighborhood,
+            state_acronym = EXCLUDED.state_acronym,
+            street = EXCLUDED.street,
+            lat = EXCLUDED.lat,
+            lon = EXCLUDED.lon,
+            price_rental = EXCLUDED.price_rental,
+            price_sale = EXCLUDED.price_sale,
+            monthly_condo = EXCLUDED.monthly_condo,
+            yearly_iptu = EXCLUDED.yearly_iptu,
+            url = EXCLUDED.url,
+            payload = EXCLUDED.payload,
+            updated_at = NOW();
+    """
+
+    rows: list[dict[str, Any]] = []
+    for obj in data:
+        if not isinstance(obj, dict):
+            continue
+        row = casamineira_extract_row(obj)
+        if not row["id"]:
+            continue
+        rows.append(row)
+
+    with psycopg.connect(dsn) as conn:
+        with conn.cursor() as cur:
+            for chunk in _chunks(rows, BATCH_SIZE):
+                cur.executemany(sql, chunk)
+        conn.commit()
+
+    print(f"Inserted/updated {len(rows)} records into b_dados.casamineira_imoveis.")
+
+
 def insert_vivareal_imoveis(json_filepath: str, dsn: str) -> None:
     path = Path(json_filepath)
     with path.open("r", encoding="utf-8") as file:
@@ -380,6 +477,8 @@ def insert_imoveis_from_file(
         insert_netimoveis_imoveis(json_filepath, dsn)
     elif p == "vivareal":
         insert_vivareal_imoveis(json_filepath, dsn)
+    elif p == "casamineira":
+        insert_casamineira_imoveis(json_filepath, dsn)      
     else:
         raise ValueError(f"Unknown provider: {p}")
 
@@ -608,6 +707,12 @@ if __name__ == "__main__":
         help="JSON export for QuintoAndar (dict keyed by id).",
     )
     parser.add_argument(
+        "--casamineira",
+        metavar="PATH",
+        default=None,
+        help="JSON export for CasaMineira (dict keyed by id).",
+    )
+    parser.add_argument(
         "--netimoveis",
         metavar="PATH",
         default=None,
@@ -630,7 +735,7 @@ if __name__ == "__main__":
         action="store_true",
         help=(
             "Before each provider upload, TRUNCATE only that provider's "
-            "b_dados table (quintoandar_imoveis, netimoveis_imoveis, vivareal_imoveis, zap_imoveis). "
+            "b_dados table (quintoandar_imoveis, netimoveis_imoveis, vivareal_imoveis, zap_imoveis, casamineira). "
             "Uses RESTART IDENTITY CASCADE."
         ),
     )
@@ -828,28 +933,7 @@ TRUNCATE TABLE b_dados.vivareal_imoveis RESTART IDENTITY CASCADE;
 """ Table as JSON
 SELECT jsonb_agg(to_jsonb(q))::text AS result
 FROM (
-	SELECT
-	'' as "360",
-	COALESCE(banheiros, 0) banheiros,
-	COALESCE(quartos, 0) quartos,
-	COALESCE(iptu, 0) iptu,
-	'' as "full",
-	0 video,
-	COALESCE(compra, 0) venda,
-	id,
-	COALESCE((json_general_data::jsonb -> 'image') ->> 0, '') thumb,
-	area,
-	COALESCE(lon, 0) as long,
-	json_general_data::jsonb ->> 'description' as descricao,
-	CASE WHEN ((json_point_data::jsonb -> 'prices') ->> 'period') = 'MONTHLY' THEN 12 else 1 END as iptu_parcelas,
-	'2020-09-14-11:27:48' as "gDate",
-	COALESCE(bairro, '') bairro,
-	COALESCE(aluguel, 0) aluguel,
-	COALESCE(condominio, 0) condominio,
-	COALESCE(lat, 0) lat,
-	'' as "data",
-	CONCAT_WS(', ', estado, cidade, endereco_rua, endereco_numero) logradouro,
-	details_url url
+	SELECT *
 	FROM b_dados.zap_imoveis
 ) as q;
 """
@@ -859,34 +943,13 @@ DROP TABLE IF EXISTS b_dados.imoveis_unificados;
 
 CREATE TABLE b_dados.imoveis_unificados as
 (
-	SELECT
-	id::bigint,
-	ST_SetSRID(ST_MakePoint(lon, lat), 4326)::geometry(Point, 4326) geom_point,
-	details_url as url,
-	--description TEXT,
-	(json_general_data::jsonb->'image'->>0) thumb,
-	COALESCE(aluguel, 0) aluguel,
-	COALESCE(compra, 0) compra,
-	COALESCE(iptu, 0) iptu,
-	COALESCE(condominio, 0) condominio,
-	COALESCE(banheiros, 0) banheiros,
-	COALESCE(quartos, 0) quartos,
-	COALESCE(vagas, 0) vagas,
-	COALESCE(area, -1) area,
-	COALESCE(tipo_imovel, '') tipo_imovel,
-	CONCAT_WS(', ', estado, cidade, endereco_rua, endereco_numero) endereco,
-	lat,
-	lon,
-	'zap' fonte
-	FROM b_dados.zap_imoveis
-) UNION (
    SELECT
 	id::bigint,
 	ST_SetSRID(ST_MakePoint(long, lat), 4326)::geometry(Point, 4326) geom_point,
 	url as url,
 	thumb,
 	COALESCE(aluguel, 0) aluguel,
-	COALESCE(venda, 0) compra,
+	COALESCE(venda, 0) venda,
 	COALESCE(0, 0) iptu,
 	COALESCE((full_json::jsonb->>'iptuPlusCondominium')::int, 0) condominio,
 	COALESCE(banheiros, 0) banheiros,
@@ -894,19 +957,20 @@ CREATE TABLE b_dados.imoveis_unificados as
 	COALESCE(vagas, 0) vagas,
 	COALESCE(area, -1) area,
 	COALESCE((full_json->>'type'), '') as tipo_imovel,
+	bairro,
 	CONCAT_WS(', ', estado, cidade, bairro, rua) endereco,
 	lat,
-	long lon,
-	'5andar' fonte
+	long,
+	'quintoandar' fonte
    FROM b_dados.quintoandar_imoveis
-) UNION (
+) UNION ALL (
    SELECT
 	id::bigint,
 	ST_SetSRID(ST_MakePoint(lon, lat), 4326)::geometry(Point, 4326) geom_point,
 	url,
-	REPLACE((payload::jsonb->'medias'->0->>'url'), '{description}.webp?action={action}&dimension={width}x{height}', 'example.webp?action=fit-in&dimension=614x297') thumb,
+	REPLACE((jsonb_path_query_first(payload::jsonb, '$.medias[*] ? (@.type == "IMAGE")')->>'url'), '{description}.webp?action={action}&dimension={width}x{height}', 'example.webp?action=fit-in&dimension=614x297') thumb,
 	COALESCE(price_rental, 0) aluguel,
-	COALESCE(price_sale, 0) compra,
+	COALESCE(price_sale, 0) venda,
 	COALESCE(yearly_iptu/12, 0) iptu,
 	COALESCE(monthly_condo, 0) condominio,
 	COALESCE((payload->'listing'->'bathrooms'->>0)::int, 0) banheiros,
@@ -914,19 +978,20 @@ CREATE TABLE b_dados.imoveis_unificados as
 	COALESCE((payload->'listing'->'parkingSpaces'->>0)::int, 0) vagas,
 	COALESCE((payload->'listing'->'usableAreas'->>0)::int, -1) area,
 	COALESCE(payload->'listing'->'unitTypes'->>0, '') tipo_imovel,
+	COALESCE(neighborhood, '') bairro,
 	CONCAT_WS(', ', state_acronym, city, neighborhood, street, payload->'link'->'data'->'streetNumber') endereco,
 	lat,
-	lon,
-	'vvreal' fonte
-  FROM b_dados.vivareal_imoveis limit 10
-) UNION (
+	lon as long,
+	'vivareal' fonte
+  FROM b_dados.vivareal_imoveis WHERE lat is not null --Danilo tem algum problema com o lat
+) UNION ALL (
  SELECT
 	id::bigint,
 	ST_SetSRID(ST_MakePoint(long, lat), 4326)::geometry(Point, 4326) geom_point,
 	url,
 	full_json->>'nomeArquivoThumb' thumb,
 	COALESCE(aluguel, 0) aluguel,
-	COALESCE(venda, 0) compra,
+	COALESCE(venda, 0) venda,
 	COALESCE(iptu/12, 0) iptu,
 	COALESCE(condominio, 0) condominio,
 	COALESCE(banheiros, 0) banheiros,
@@ -934,11 +999,34 @@ CREATE TABLE b_dados.imoveis_unificados as
 	COALESCE(vagas, 0) vagas,
 	COALESCE(area, -1) area,
 	CASE WHEN COALESCE((full_json->>'tipoImovel1_Id')::int, 0) = 3 THEN 'apartamento' ELSE 'casa' END tipo_imovel,
+	COALESCE(full_json->>'nomeBairro', '') bairro,
 	endereco,
 	lat,
-	long lon,
-	'netimov' fonte
+	long,
+	'netimoveis' fonte
    FROM b_dados.netimoveis_imoveis
+) UNION ALL (
+	SELECT
+	id::bigint,
+	ST_SetSRID(ST_MakePoint(lon, lat), 4326)::geometry(Point, 4326) geom_point,
+	details_url as url,
+	--description TEXT,
+	(json_general_data::jsonb->'image'->>0) thumb,
+	COALESCE(CASE WHEN aluguel = compra THEN 0 ELSE aluguel END, 0) aluguel,
+	COALESCE(compra, 0) venda, --valor ta errado.
+	COALESCE(iptu, 0) iptu,
+	COALESCE(condominio, 0) condominio,
+	COALESCE(banheiros, 0) banheiros,
+	COALESCE(quartos, 0) quartos,
+	COALESCE(vagas, 0) vagas,
+	COALESCE(area, -1) area,
+	COALESCE(tipo_imovel, '') bairro, --Danilo, ta invertido
+	COALESCE(bairro, '') tipo_imovel,
+	CONCAT_WS(', ', estado, cidade, endereco_rua, endereco_numero) endereco,
+	lat,
+	lon as long,
+	'zapimoveis' fonte
+	FROM b_dados.zap_imoveis
 );
 
 
@@ -953,4 +1041,22 @@ CREATE INDEX idx_b_dados__imoveis_unificados__condominio ON b_dados.imoveis_unif
 CREATE INDEX idx_b_dados__imoveis_unificados__fonte ON b_dados.imoveis_unificados (fonte);
 --CREATE INDEX idx_b_dados__imoveis_unificados__filtros ON b_dados.imoveis_unificados (quartos, vagas, area, banheiros);
 
+UPDATE b_dados.imoveis_unificados
+SET tipo_imovel =
+CASE
+    WHEN lower(tipo_imovel) IN (
+      'triplex','casa','two_story_house','casacondominio','home',
+      'single_storey_house','village_house','farm',
+      'allotment_land','residential_allotment_land'
+    ) THEN 'Casa'
+
+    WHEN lower(tipo_imovel) IN (
+      'apartamento','apartment','condominium','flat','studio',
+      'studiooukitchenette','kitnet','loft','duplex','penthouse'
+    ) THEN 'Apartamento'
+
+    ELSE 'Outro'
+END;
+
+SELECT COUNT(*) FROM b_dados.imoveis_unificados;
 """
