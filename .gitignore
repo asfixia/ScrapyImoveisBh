@@ -10,3 +10,4 @@ ImoveisScrapy/.idea/inspectionProfiles/profiles_settings.xml
 *.pyc
 /output
 *.json
+.venv

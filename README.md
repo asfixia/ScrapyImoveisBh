@@ -52,12 +52,12 @@ By default, files are written to the **current working directory**. Set `SCRAPE_
 
 ## Linux / macOS setup
 
-Install Python 3 and the venv module if needed:
+Install Python 3 and venv support (required on Debian/Ubuntu — avoids PEP 668 / `externally-managed-environment`):
 
 ```bash
-# Debian/Ubuntu
+# Debian/Ubuntu / Raspberry Pi OS
 sudo apt update
-sudo apt install python3 python3-venv python3-pip
+sudo apt install python3-full python3-venv python3-pip
 ```
 
 From the project root:
@@ -65,6 +65,15 @@ From the project root:
 ```bash
 chmod +x create_venv.sh activate_venv.sh
 ./create_venv.sh
+```
+
+If a previous run failed halfway, remove the broken venv first:
+
+```bash
+rm -rf .venv
+python3 -m venv --copies .venv
+source .venv/bin/activate
+```
 
 source ./activate_venv.sh
 ```
