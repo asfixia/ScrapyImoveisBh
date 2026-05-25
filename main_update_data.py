@@ -22,7 +22,9 @@ SPIDER_PYTHON: dict[str, str] = {
 }
 
 # python <script> — started only after all SPIDERS + SPIDER_PYTHON finish
-AFTER_SPIDER: dict[str, str] = {}
+AFTER_SPIDER: dict[str, str] = {
+    "MergeImoveis": "json_imoveis_merge.py",
+}
 
 LOG_DIR = PROJECT_ROOT / "logs"
 STAGGER_SECONDS = 0.1

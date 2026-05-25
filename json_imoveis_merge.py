@@ -1,8 +1,10 @@
 import json
+import os
 import re
 from pathlib import Path
 from collections import defaultdict
 from datetime import datetime
+import shutil
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 
@@ -90,7 +92,7 @@ def parse_quintoandar(data):
         result.append({
             "id": parse_int(id),
             "url": item.get("url"),
-            "thumb": item.get("thumb"),
+            "thumb": (item.get("thumb", "") or "").replace('{description}', 'a'),
             "aluguel": parse_int(item.get("aluguel")),
             "venda": parse_int(item.get("venda")),
             "iptu": 0,
@@ -119,7 +121,7 @@ def parse_vivareal(data):
     result = []
 
     for item in data:
-        thumb = ([media.get("url") for media in item.get("medias", []) if media.get("type") == "IMAGE"] + [""])[0]
+        thumb = ([media.get("url") for media in item.get("medias", []) if media.get("type") == "IMAGE"] + [""])[0].replace('action={action}&dimension={width}x{height}', "action=fit-in&dimension=870x707").replace('{description}', 'a')
         urlRef = (item.get("link", {}).get("href", ""))
         if urlRef:
             urlRef = "https://www.vivareal.com.br" + urlRef
@@ -145,8 +147,8 @@ def parse_vivareal(data):
                 item.get("listing", {}).get("address", {}).get("neighborhood", ""),
                 item.get("listing", {}).get("address", {}).get("street", ""),
             ])),
-            "lat": parse_float(item.get("listing", {}).get("address", {}).get("point", {}).get("lat", 0)),
-            "lon": parse_float(item.get("listing", {}).get("address", {}).get("point", {}).get("lon", 0)),
+            "lat": parse_float(item.get("listing", {}).get("address", {}).get("point", {}).get("lat", None) or item.get("listing", {}).get("address", {}).get("point", {}).get("approximateLat", None)),
+            "lon": parse_float(item.get("listing", {}).get("address", {}).get("point", {}).get("lon", None) or item.get("listing", {}).get("address", {}).get("point", {}).get("approximateLon", None)),
             "fonte": "vivareal"
         })
 
@@ -162,7 +164,7 @@ def parse_netimoveis(data):
         result.append({
             "id": parse_int(item.get("id")),
             "url": item.get("url"),
-            "thumb": fullJson.get("nomeArquivoThumb", ""),
+            "thumb": fullJson.get("nomeArquivoThumb", "").replace('{description}', 'a'),
             "aluguel": parse_int(item.get("aluguel")),
             "venda": parse_int(item.get("venda")),
             "iptu": parse_int(fullJson.get("valorIPTU")),
@@ -196,7 +198,7 @@ def parse_zapimoveis(data):
         result.append({
             "id": parse_int(item.get("id")),
             "url": url,
-            "thumb": getFirstValue(item.get("jsonGeneralData", {}).get("image", [])) or "",
+            "thumb": (getFirstValue(item.get("jsonGeneralData", {}).get("image", [])) or "").replace('{description}', 'a'),
             "aluguel": parse_int(offers.get("potentialAction", {}).get("priceSpecification", {}).get("price", None) if offers.get("potentialAction", {}).get("@type", "") == "RentAction" else 0),
             "venda": parse_int(offers.get("potentialAction", {}).get("priceSpecification", {}).get("price", None) if offers.get("potentialAction", {}).get("@type", "") == "BuyAction" else 0),
             "iptu": parse_int(item.get("iptu")),
@@ -284,7 +286,6 @@ print(f"\nMerged properties: {len(merged)}")
 # ---------------------------------------------------
 # Save merged
 # ---------------------------------------------------
-
 output_file = PROJECT_ROOT / "imoveis_unificados.json"
 with open(output_file, "w", encoding="utf-8") as curFile:
     json.dump(merged, curFile, ensure_ascii=False, indent=2)
@@ -297,3 +298,21 @@ with open(output_file_minified, "w", encoding="utf-8") as curFile:
 print(f"Saved: {output_file_minified}")
 
 
+
+
+
+#---------------------------------------------------
+# Copy merged file to other files
+#---------------------------------------------------
+merged_file_minified = os.getenv("MERGED_FILE_MINIFIED", r"\\recalcards.com\web_html\fitrabit\data\imoveis_unificados.json,/var/www/html/fitrabit/data/imoveis_unificados.json")
+if merged_file_minified is None or merged_file_minified == "None":
+    print("MERGED_FILE_MINIFIED environment variable is not set  by environment 'COPY_MERGED_FILES' variable separated by ';' or ','")
+    exit(1)
+
+
+for curFile in re.split(r"[,|;]", merged_file_minified):
+    try:
+        shutil.copy(output_file_minified, Path(curFile))
+        print(f"Copied successfully to {curFile}")
+    except Exception as e:
+        print(f"Error copying to {curFile}: {e}")
