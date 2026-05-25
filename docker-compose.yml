@@ -1,32 +1,18 @@
-# One service per crawler; JSON files land in ./output (timestamp + site name).
-# Build once:  docker compose build
-# Run one:    docker compose run --rm netimoveis
-# Run all:    docker compose run --rm netimoveis && docker compose run --rm vivareal ...
-
-x-crawler: &crawler
-  build: .
-  environment:
-    SCRAPE_OUTPUT_DIR: /data
-  volumes:
-    - ./output:/data
+# Single container: runs all Scrapy spiders + Python crawlers + merge (main_update_data.py).
+#
+#   docker compose build
+#   docker compose run --rm update-data
+#
+# JSON outputs and merged files: ./output → /data
+# Per-job logs: ./logs → /app/logs
 
 services:
-  netimoveis:
-    <<: *crawler
-    command: ["netimoveis"]
-
-  vivareal:
-    <<: *crawler
-    command: ["vivareal"]
-
-  quintoandar:
-    <<: *crawler
-    command: ["quintoandar"]
-
-  casamineira:
-    <<: *crawler
-    command: ["casamineira"]
-
-  zap:
-    <<: *crawler
-    command: ["zap"]
+  update-data:
+    build: .
+    environment:
+      SCRAPE_OUTPUT_DIR: /data
+      # Optional: copy imoveis_unificados_minified.json to extra paths (comma or semicolon)
+      # MERGED_FILE_MINIFIED: /var/www/html/fitrabit/data/imoveis_unificados.json \\recalcards.com\web_html\fitrabit\data\imoveis_unificados.json,/var/www/html/fitrabit/data/imoveis_unificados.json
+    volumes:
+      - ./output:/data
+      - ./logs:/app/logs

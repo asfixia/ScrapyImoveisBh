@@ -7,8 +7,12 @@ __pycache__
 .idea
 .vscode
 output
+logs
+cache
 *.json
 *.log
+deletaeu*
+imoveis_unificados*
 terminals
 .agent
 .agents

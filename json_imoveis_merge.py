@@ -6,7 +6,9 @@ from collections import defaultdict
 from datetime import datetime
 import shutil
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+from scrape_output import output_dir
+
+DATA_DIR = output_dir()
 
 PATTERN = re.compile(
     r"(?P<date>\d{4}-\d{2}-\d{2}_\d{2}-\d{2})_(?P<site>[a-zA-Z0-9_]+)\.json$"
@@ -229,7 +231,7 @@ def parse_zapimoveis(data):
 
 site_latest = {}
 
-for file in PROJECT_ROOT.glob("*.json"):
+for file in DATA_DIR.glob("*.json"):
     match = PATTERN.match(file.name)
 
     if not match:
@@ -286,13 +288,13 @@ print(f"\nMerged properties: {len(merged)}")
 # ---------------------------------------------------
 # Save merged
 # ---------------------------------------------------
-output_file = PROJECT_ROOT / "imoveis_unificados.json"
+output_file = DATA_DIR / "imoveis_unificados.json"
 with open(output_file, "w", encoding="utf-8") as curFile:
     json.dump(merged, curFile, ensure_ascii=False, indent=2)
 print(f"Saved: {output_file}")
 
 
-output_file_minified = PROJECT_ROOT / "imoveis_unificados_minified.json"
+output_file_minified = DATA_DIR / "imoveis_unificados_minified.json"
 with open(output_file_minified, "w", encoding="utf-8") as curFile:
     json.dump(merged, curFile, ensure_ascii=False, separators=(",", ":"))
 print(f"Saved: {output_file_minified}")
@@ -311,8 +313,14 @@ if merged_file_minified is None or merged_file_minified == "None":
 
 
 for curFile in re.split(r"[,|;]", merged_file_minified):
+    dest = Path(curFile.strip())
+    if not str(dest):
+        continue
     try:
-        shutil.copy(output_file_minified, Path(curFile))
-        print(f"Copied successfully to {curFile}")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(output_file_minified, dest)
+        print(f"Copied successfully to {dest}")
     except Exception as e:
-        print(f"Error copying to {curFile}: {e}")
+        print(f"Error copying to {dest}: {e}")
+
+
