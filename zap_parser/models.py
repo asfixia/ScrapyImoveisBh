@@ -135,6 +135,7 @@ class ZapDetailPageMetadata:
     quartos: int | None
     tipoImovel: str | None
     vagas: int | None
+    fullJsonData: dict | None
 
     @staticmethod
     def replace_undefined_str(value: object) -> str | None:

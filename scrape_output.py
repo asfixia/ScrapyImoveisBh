@@ -9,7 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 
 
 def output_dir() -> Path:
-    raw = os.environ.get("SCRAPE_OUTPUT_DIR", PROJECT_ROOT).strip()
+    raw = os.environ.get("SCRAPE_OUTPUT_DIR", str(PROJECT_ROOT)).strip()
     if raw:
         path = Path(raw)
         path.mkdir(parents=True, exist_ok=True)

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from urllib.parse import urlencode
 
-from zap_parser.constants import BASE_QUERY, BH_ONDE, TRANSACAO_ALUGUEL, TRANSACAO_VENDA
+
+from zap_parser.constants import BASE_QUERY, BH_ONDE, TRANSACAO_ALUGUEL, TRANSACAO_VENDA, build_api_listings_url
 from zap_parser.models import ZapMapViewport
 
 
@@ -35,6 +36,15 @@ def page_url(
         return base
     return base + "?" + urlencode(params)
 
+def api_listings_url(
+    user: str,
+    page: int,
+    size: int,
+    listFrom: int,
+    viewport: ZapMapViewport | None = None,
+    transacao: str = TRANSACAO_ALUGUEL,
+) -> str:
+    return build_api_listings_url(transacao, **{"user": user, "page": page, "size": size, "from": listFrom, "viewport": viewport.as_query_string() if viewport is not None else None})
 
 def url_remove_parameters(url: str | None) -> str | None:
     return url.split("?")[0] if url is not None else None

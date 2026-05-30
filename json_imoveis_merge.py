@@ -229,98 +229,99 @@ def parse_zapimoveis(data):
 # Find latest file for each site
 # ---------------------------------------------------
 
-site_latest = {}
+if __name__ == "__main__":
+    site_latest = {}
 
-for file in DATA_DIR.glob("*.json"):
-    match = PATTERN.match(file.name)
+    for file in DATA_DIR.glob("*.json"):
+        match = PATTERN.match(file.name)
 
-    if not match:
-        continue
+        if not match:
+            continue
 
-    site = match.group("site").lower()
+        site = match.group("site").lower()
 
-    dt = datetime.strptime(
-        match.group("date"),
-        "%Y-%m-%d_%H-%M"
-    )
+        dt = datetime.strptime(
+            match.group("date"),
+            "%Y-%m-%d_%H-%M"
+        )
 
-    if site not in site_latest or dt > site_latest[site]["date"]:
-        site_latest[site] = {
-            "date": dt,
-            "file": file
-        }
+        if site not in site_latest or dt > site_latest[site]["date"]:
+            site_latest[site] = {
+                "date": dt,
+                "file": file
+            }
 
-print("Latest files:")
-for site, info in site_latest.items():
-    print(site, "->", info["file"].name)
+    print("Latest files:")
+    for site, info in site_latest.items():
+        print(site, "->", info["file"].name)
 
-# ---------------------------------------------------
-# Load JSONs
-# ---------------------------------------------------
+    # ---------------------------------------------------
+    # Load JSONs
+    # ---------------------------------------------------
 
-site_jsons = {}
+    site_jsons = {}
 
-for site, info in site_latest.items():
-    with open(info["file"], "r", encoding="utf-8") as curFile:
-        site_jsons[site] = json.load(curFile)
-
-
-# ---------------------------------------------------
-# Merge all
-# ---------------------------------------------------
-
-merged = []
-
-if "quintoandar" in site_jsons:
-    merged.extend(parse_quintoandar(site_jsons["quintoandar"]))
-
-if "vivareal" in site_jsons:
-    merged.extend(parse_vivareal(site_jsons["vivareal"]))
-
-if "netimoveis" in site_jsons:
-    merged.extend(parse_netimoveis(site_jsons["netimoveis"]))
-
-if "zapimoveis" in site_jsons:
-    merged.extend(parse_zapimoveis(site_jsons["zapimoveis"]))
-
-print(f"\nMerged properties: {len(merged)}")
-
-# ---------------------------------------------------
-# Save merged
-# ---------------------------------------------------
-output_file = DATA_DIR / "imoveis_unificados.json"
-with open(output_file, "w", encoding="utf-8") as curFile:
-    json.dump(merged, curFile, ensure_ascii=False, indent=2)
-print(f"Saved: {output_file}")
+    for site, info in site_latest.items():
+        with open(info["file"], "r", encoding="utf-8") as curFile:
+            site_jsons[site] = json.load(curFile)
 
 
-output_file_minified = DATA_DIR / "imoveis_unificados_minified.json"
-with open(output_file_minified, "w", encoding="utf-8") as curFile:
-    json.dump(merged, curFile, ensure_ascii=False, separators=(",", ":"))
-print(f"Saved: {output_file_minified}")
+    # ---------------------------------------------------
+    # Merge all
+    # ---------------------------------------------------
+
+    merged = []
+
+    if "quintoandar" in site_jsons:
+        merged.extend(parse_quintoandar(site_jsons["quintoandar"]))
+
+    if "vivareal" in site_jsons:
+        merged.extend(parse_vivareal(site_jsons["vivareal"]))
+
+    if "netimoveis" in site_jsons:
+        merged.extend(parse_netimoveis(site_jsons["netimoveis"]))
+
+    if "zapimoveis" in site_jsons:
+        merged.extend(parse_zapimoveis(site_jsons["zapimoveis"]))
+
+    print(f"\nMerged properties: {len(merged)}")
+
+    # ---------------------------------------------------
+    # Save merged
+    # ---------------------------------------------------
+    output_file = DATA_DIR / "imoveis_unificados.json"
+    with open(output_file, "w", encoding="utf-8") as curFile:
+        json.dump(merged, curFile, ensure_ascii=False, indent=2)
+    print(f"Saved: {output_file}")
+
+
+    output_file_minified = DATA_DIR / "imoveis_unificados_minified.json"
+    with open(output_file_minified, "w", encoding="utf-8") as curFile:
+        json.dump(merged, curFile, ensure_ascii=False, separators=(",", ":"))
+    print(f"Saved: {output_file_minified}")
 
 
 
 
 
-#---------------------------------------------------
-# Copy merged file to other files
-#---------------------------------------------------
-merged_file_minified = os.getenv("MERGED_FILE_MINIFIED", r"\\recalcards.com\web_html\fitrabit\data\imoveis_unificados.json,/var/www/html/fitrabit/data/imoveis_unificados.json")
-if merged_file_minified is None or merged_file_minified == "None":
-    print("MERGED_FILE_MINIFIED environment variable is not set  by environment 'COPY_MERGED_FILES' variable separated by ';' or ','")
-    exit(1)
+    #---------------------------------------------------
+    # Copy merged file to other files
+    #---------------------------------------------------
+    merged_file_minified = os.getenv("MERGED_FILE_MINIFIED", r"\\recalcards.com\web_html\fitrabit\data\imoveis_unificados.json,/var/www/html/fitrabit/data/imoveis_unificados.json")
+    if merged_file_minified is None or merged_file_minified == "None":
+        print("MERGED_FILE_MINIFIED environment variable is not set  by environment 'COPY_MERGED_FILES' variable separated by ';' or ','")
+        exit(1)
 
 
-for curFile in re.split(r"[,|;]", merged_file_minified):
-    dest = Path(curFile.strip())
-    if not str(dest):
-        continue
-    try:
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy(output_file_minified, dest)
-        print(f"Copied successfully to {dest}")
-    except Exception as e:
-        print(f"Error copying to {dest}: {e}")
+    for curFile in re.split(r"[,|;]", merged_file_minified):
+        dest = Path(curFile.strip())
+        if not str(dest):
+            continue
+        try:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(output_file_minified, dest)
+            print(f"Copied successfully to {dest}")
+        except Exception as e:
+            print(f"Error copying to {dest}: {e}")
 
 
