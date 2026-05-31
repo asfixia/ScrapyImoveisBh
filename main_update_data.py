@@ -18,8 +18,7 @@ SPIDERS = [
 ]
 
 SPIDER_PYTHON: dict[str, str] = {
-    "ZapAluguel": "scrapers/zap/aluguel.py",
-    "ZapVenda": "scrapers/zap/venda.py",
+    "ZapImoveis": "ImoveisScrapy/spiders/zapimoveis_scrapy.py",
 }
 
 # python <script> — started only after all SPIDERS + SPIDER_PYTHON finish
@@ -220,25 +219,25 @@ def wait_jobs(jobs: list[Job], phase: str) -> list[tuple[str, int]]:
 def main() -> None:
     crawl_jobs: list[Job] = []
 
-    # for spider in dict.fromkeys(SPIDERS):
-    #     if spider_is_running(spider):
-    #         print(f"{spider} already running — skipped.")
-    #     else:
-    #         crawl_jobs.append(start_spider(spider))
-    #         time.sleep(STAGGER_SECONDS)
+    for spider in dict.fromkeys(SPIDERS):
+        if spider_is_running(spider):
+            print(f"{spider} already running — skipped.")
+        else:
+            crawl_jobs.append(start_spider(spider))
+            time.sleep(STAGGER_SECONDS)
 
-    # for crawler_name, script in SPIDER_PYTHON.items():
-    #     if python_script_is_running(script):
-    #         print(f"{crawler_name} ({script}) already running — skipped.")
-    #     else:
-    #         crawl_jobs.append(start_python_script(script, label=crawler_name))
-    #         time.sleep(STAGGER_SECONDS)
+    for crawler_name, script in SPIDER_PYTHON.items():
+        if python_script_is_running(script):
+            print(f"{crawler_name} ({script}) already running — skipped.")
+        else:
+            crawl_jobs.append(start_python_script(script, label=crawler_name))
+            time.sleep(STAGGER_SECONDS)
 
     failed: list[tuple[str, int]] = []
-    # if crawl_jobs:
-    #     failed.extend(wait_jobs(crawl_jobs, "crawl"))
-    # else:
-    #     print("No crawl jobs started (SPIDERS + SPIDER_PYTHON).")
+    if crawl_jobs:
+        failed.extend(wait_jobs(crawl_jobs, "crawl"))
+    else:
+        print("No crawl jobs started (SPIDERS + SPIDER_PYTHON).")
 
     after_jobs: list[Job] = []
     for label, script in AFTER_SPIDER.items():
