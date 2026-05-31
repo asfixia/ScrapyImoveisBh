@@ -8,7 +8,9 @@
 
 services:
   update-data:
-    build: .
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
     environment:
       SCRAPE_OUTPUT_DIR: /data
       # Optional: copy imoveis_unificados_minified.json to extra paths (comma or semicolon)

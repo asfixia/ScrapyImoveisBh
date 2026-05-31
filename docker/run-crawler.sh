@@ -29,7 +29,7 @@ case "$1" in
     exec python -m scrapy crawl CasaMineira
     ;;
   zap)
-    exec python zap_botasaurus_client.py
+    exec python ImoveisScrapy/spiders/zapimoveis_scrapy.py
     ;;
   *)
     echo "Unknown crawler: $1"

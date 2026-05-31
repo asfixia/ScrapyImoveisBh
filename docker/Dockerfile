@@ -40,10 +40,10 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY scrape_output.py main_update_data.py json_imoveis_merge.py ./
-COPY scrapy.cfg ./
-COPY zap_parser ./zap_parser
-COPY zap_botasaurus_client.py quintoandar_botasaurus_client.py ./
+COPY main_update_data.py scrapy.cfg ./
+COPY utils ./utils
+COPY pipeline ./pipeline
+COPY scrapers ./scrapers
 COPY ImoveisScrapy ./ImoveisScrapy
 COPY docker ./docker
 
