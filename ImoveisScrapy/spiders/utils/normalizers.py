@@ -9,7 +9,7 @@ from collections.abc import Mapping
 from datetime import date, datetime, timedelta, timezone
 from typing import Literal, TypeVar
 
-from scrapers.zap.parser.constants import ZAP_AMENITY_LABELS
+from ImoveisScrapy.spiders.utils.constants import ZAP_AMENITY_LABELS
 
 T = TypeVar("T")
 

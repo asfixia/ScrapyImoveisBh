@@ -4,7 +4,7 @@ ZAP listing parser package (split by responsibility).
 Re-exports the public surface previously provided by ``zap_listing_parser.py``.
 """
 
-from scrapers.zap.parser.constants import (
+from ImoveisScrapy.spiders.utils.constants import (
     BASE_QUERY,
     BH_ONDE,
     BH_VIEWPORT,
@@ -13,8 +13,8 @@ from scrapers.zap.parser.constants import (
     TRANSACAO_VENDA,
     ZAP_AMENITY_LABELS,
 )
-from scrapers.zap.parser.geocoder import get_geo_from_address
-from scrapers.zap.parser.html_extractors import (
+from ImoveisScrapy.spiders.utils.geocoder import get_geo_from_address
+from ImoveisScrapy.spiders.utils.html_extractors import (
     anchor_html_to_selector,
     get_aluguel,
     get_area,
@@ -39,7 +39,7 @@ from scrapers.zap.parser.html_extractors import (
     get_vagas,
     parse_int_digits as parse_int,
 )
-from scrapers.zap.parser.json_extractors import (
+from ImoveisScrapy.spiders.utils.json_extractors import (
     extract_amenities_from_listing,
     extract_json_data,
     get_aluguel_from_json,
@@ -68,20 +68,20 @@ from scrapers.zap.parser.json_extractors import (
     zap_json_listing_bundle,
     zap_page_data_field,
 )
-from scrapers.zap.parser.models import ZapDetailPageMetadata, ZapMapViewport
-from scrapers.zap.parser.normalizers import (
+from ImoveisScrapy.spiders.utils.models import ZapDetailPageMetadata, ZapMapViewport
+from ImoveisScrapy.spiders.utils.normalizers import (
     format_endereco_zap,
     nested_get as zap_nested_get,
     parse_first_int,
     value_is_absent as zap_value_is_absent,
 )
-from scrapers.zap.parser.parser import (
+from ImoveisScrapy.spiders.utils.parser import (
     extract_lat_lon_from_detail_html,
     getImvListFromPage,
     getImvQuantityFromListPage,
     parse_detail_page_metadata,
 )
-from scrapers.zap.parser.urls import BASE_PATH, page_url, urlRemoveParameters
+from ImoveisScrapy.spiders.utils.urls import BASE_PATH, page_url, urlRemoveParameters
 
 extractJsonData = extract_json_data
 

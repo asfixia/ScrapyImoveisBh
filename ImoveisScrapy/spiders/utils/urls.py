@@ -5,8 +5,8 @@ from __future__ import annotations
 from urllib.parse import urlencode
 
 
-from scrapers.zap.parser.constants import BASE_QUERY, BH_ONDE, TRANSACAO_ALUGUEL, TRANSACAO_VENDA, build_api_listings_url
-from scrapers.zap.parser.models import ZapMapViewport
+from ImoveisScrapy.spiders.utils.constants import BASE_QUERY, BH_ONDE, TRANSACAO_ALUGUEL, TRANSACAO_VENDA, build_api_listings_url
+from ImoveisScrapy.spiders.utils.models import ZapMapViewport
 
 
 def listing_base_path(transacao: str) -> str:

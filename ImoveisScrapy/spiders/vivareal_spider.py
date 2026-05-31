@@ -24,8 +24,8 @@ class VivarealBusiness(str, Enum):
 
 import scrapy
 from botasaurus.request import Request, request
-from utils.scrape_output import output_json_path
-from scrapers.zap.parser import BH_VIEWPORT, ZapMapViewport
+from ImoveisScrapy.spiders.utils.scrape_output import output_json_path
+from ImoveisScrapy.spiders.utils import BH_VIEWPORT, ZapMapViewport
 
 LOG = logging.getLogger(__name__)
 

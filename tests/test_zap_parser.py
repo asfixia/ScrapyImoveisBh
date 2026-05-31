@@ -6,17 +6,17 @@ from datetime import date
 
 import pytest
 
-from scrapers.zap.parser.constants import TRANSACAO_ALUGUEL
-from scrapers.zap.parser.json_extractors import (
+from ImoveisScrapy.spiders.utils.constants import TRANSACAO_ALUGUEL
+from ImoveisScrapy.spiders.utils.json_extractors import (
     get_endereco_numero_from_json,
     get_fotos_from_json,
     get_id_from_json,
 )
-from scrapers.zap.parser.merge import metadata_from_ld_json_item
-from scrapers.zap.parser.models import ZapDetailPageMetadata, ZapMapViewport
-from scrapers.zap.parser.normalizers import nested_get, value_is_absent
-from scrapers.zap.parser.parser import extract_lat_lon_from_detail_html, parse_detail_page_metadata
-from scrapers.zap.parser.urls import listing_base_path, page_url, url_remove_parameters
+from ImoveisScrapy.spiders.utils.merge import metadata_from_ld_json_item
+from ImoveisScrapy.spiders.utils.models import ZapDetailPageMetadata, ZapMapViewport
+from ImoveisScrapy.spiders.utils.normalizers import nested_get, value_is_absent
+from ImoveisScrapy.spiders.utils.parser import extract_lat_lon_from_detail_html, parse_detail_page_metadata
+from ImoveisScrapy.spiders.utils.urls import listing_base_path, page_url, url_remove_parameters
 
 
 def test_value_is_absent() -> None:

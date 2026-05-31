@@ -8,7 +8,7 @@ from functools import lru_cache
 
 from parsel import Selector
 
-from scrapers.zap.parser.normalizers import (
+from ImoveisScrapy.spiders.utils.normalizers import (
     decode_json_string_fragment,
     parse_first_int,
     valid_lat_lon,

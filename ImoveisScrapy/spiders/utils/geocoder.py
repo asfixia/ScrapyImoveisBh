@@ -10,7 +10,7 @@ import urllib.error
 import urllib.request
 from urllib.parse import parse_qs, unquote, urlencode, urlparse
 
-from scrapers.zap.parser.constants import NOMINATIM_USER_AGENT
+from ImoveisScrapy.spiders.utils.constants import NOMINATIM_USER_AGENT
 
 LOG = logging.getLogger(__name__)
 

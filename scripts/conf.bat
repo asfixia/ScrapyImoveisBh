@@ -1,1 +1,3 @@
-set PATH=F:\Danilo\Programacao\python\ImoveisScrapy\ImoveisScrapy\exe\;%PATH%
+@echo off
+rem Add geckodriver (used by legacy Scrapy-Playwright tests) to PATH
+set "PATH=%~dp0..\ImoveisScrapy\exe\;%PATH%"

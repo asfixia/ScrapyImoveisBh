@@ -1,19 +1,8 @@
+@echo off
+rem Run all scrapers then merge. Run from project root or scripts/.
+cd /d "%~dp0.."
 
-cd F:\Danilo\Temp\imoveisBH\
-git pull
-
-cd %~dp0
-rm %~dp0/netimoveis.json
-rm %~dp0/vivareal.json
-rm %~dp0/zapimoveis.json
-
-call %~dp0/getNetImoveis.bat
-call %~dp0/getVivaRealImoveis.bat
-call %~dp0/getZapImoveis.bat
-python %~dp0/publish_changes.py
-
-
-cd F:\Danilo\Temp\imoveisBH\
-git add *
-git commit -m "Update de hoje"
-git push
+call scripts\getNetImoveis.bat
+call scripts\getVivaRealImoveis.bat
+call scripts\getZapImoveis.bat
+python pipeline\merge.py

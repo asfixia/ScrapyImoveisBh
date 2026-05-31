@@ -7,14 +7,14 @@ import logging
 
 from bs4 import BeautifulSoup
 
-from scrapers.zap.parser.geocoder import (
+from ImoveisScrapy.spiders.utils.geocoder import (
     coords_from_two_numeric_csv_parts,
     first_google_maps_embed_query_params,
     get_geo_from_address,
     maps_embed_api_key_from_html,
     skip_embed_geocode,
 )
-from scrapers.zap.parser.html_extractors import (
+from ImoveisScrapy.spiders.utils.html_extractors import (
     get_aluguel,
     get_area,
     get_banheiros,
@@ -29,7 +29,7 @@ from scrapers.zap.parser.html_extractors import (
     get_iptu,
     get_vagas,
 )
-from scrapers.zap.parser.json_extractors import (
+from ImoveisScrapy.spiders.utils.json_extractors import (
     extract_json_data,
     get_aluguel_from_json,
     get_amenities_from_json,
@@ -53,11 +53,11 @@ from scrapers.zap.parser.json_extractors import (
     get_property_type_from_json,
     get_vagas_from_json,
 )
-from scrapers.zap.parser.merge import metadata_from_ld_json_item, metadata_from_point_item
-from scrapers.zap.parser.models import ZapDetailPageMetadata
-from scrapers.zap.parser.normalizers import coerce_lat_lon
-from scrapers.zap.parser.parse_result import log_parse_warning
-from scrapers.zap.parser.rsc_extractors import (
+from ImoveisScrapy.spiders.utils.merge import metadata_from_ld_json_item, metadata_from_point_item
+from ImoveisScrapy.spiders.utils.models import ZapDetailPageMetadata
+from ImoveisScrapy.spiders.utils.normalizers import coerce_lat_lon
+from ImoveisScrapy.spiders.utils.parse_result import log_parse_warning
+from ImoveisScrapy.spiders.utils.rsc_extractors import (
     find_lat_lon_in_json,
     load_next_data_json,
     regex_lat_lon_from_rsc,

@@ -23,11 +23,11 @@ import time
 from datetime import datetime
 from urllib.parse import urljoin
 
-from utils.data_helpers import normalize_tipo, parse_float
+from ImoveisScrapy.spiders.utils.data_helpers import normalize_tipo, parse_float
 import scrapy
 from botasaurus.request import Request, request
 
-from utils.scrape_output import output_json_path
+from ImoveisScrapy.spiders.utils.scrape_output import output_json_path
 
 LOG = logging.getLogger(__name__)
 

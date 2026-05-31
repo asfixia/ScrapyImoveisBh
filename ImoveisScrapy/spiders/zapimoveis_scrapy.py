@@ -15,7 +15,7 @@ if str(_ROOT) not in sys.path:
 from botasaurus.request import Request, request
 from botasaurus.soupify import soupify
 
-from scrapers.zap.parser import (
+from ImoveisScrapy.spiders.utils import (
     BH_VIEWPORT,
     MAX_PAGES,
     ZapDetailPageMetadata,
@@ -24,9 +24,9 @@ from scrapers.zap.parser import (
     page_url,
     parse_detail_page_metadata,
 )
-from scrapers.zap.parser.urls import api_listings_url
-from utils.data_helpers import getFirstValue, normalize_tipo
-from utils.scrape_output import output_json_path
+from ImoveisScrapy.spiders.utils.urls import api_listings_url
+from ImoveisScrapy.spiders.utils.data_helpers import getFirstValue, normalize_tipo
+from ImoveisScrapy.spiders.utils.scrape_output import output_json_path
 
 LOG = logging.getLogger(__name__)
 
@@ -191,7 +191,7 @@ def _scrape_zap_transaction(request_obj: Request, transacao: str) -> dict[str, Z
 @request(max_retry=5)
 def zap_scraper(request_obj: Request, data=None):
     """Scrape ZAP aluguel and venda listings for BH, writing a single combined JSON file."""
-    from scrapers.zap.parser import TRANSACAO_ALUGUEL, TRANSACAO_VENDA
+    from ImoveisScrapy.spiders.utils import TRANSACAO_ALUGUEL, TRANSACAO_VENDA
     imv_aluguel = _scrape_zap_transaction(request_obj, TRANSACAO_ALUGUEL)
     imv_venda = _scrape_zap_transaction(request_obj, TRANSACAO_VENDA)
 

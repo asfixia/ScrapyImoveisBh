@@ -13,7 +13,7 @@ _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from utils.data_helpers import (
+from ImoveisScrapy.spiders.utils.data_helpers import (
     getFirstValue,
     getKey,
     normalize_tipo,
@@ -21,7 +21,7 @@ from utils.data_helpers import (
     parse_int,
     removeInvalidValue,
 )
-from utils.scrape_output import OUTPUT_DIR
+from ImoveisScrapy.spiders.utils.scrape_output import OUTPUT_DIR
 
 PATTERN = re.compile(
     r"(?P<date>\d{4}-\d{2}-\d{2}_\d{2}-\d{2})_(?P<site>[a-zA-Z0-9_]+)\.json$"

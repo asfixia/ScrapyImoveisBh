@@ -18,8 +18,8 @@ if str(_ROOT) not in sys.path:
 import scrapy
 from botasaurus.request import Request, request
 
-from scrapers.zap.parser import BH_VIEWPORT, MAX_PAGES, ZapMapViewport
-from utils.scrape_output import output_json_path
+from ImoveisScrapy.spiders.utils import BH_VIEWPORT, MAX_PAGES, ZapMapViewport
+from ImoveisScrapy.spiders.utils.scrape_output import output_json_path
 
 LOG = logging.getLogger(__name__)
 

@@ -1,10 +1,12 @@
-import json
+"""Merge latest scraped JSON files. Superseded by pipeline/merge.py — kept for manual use."""
+import subprocess
+import sys
+from pathlib import Path
 
-folder = "F:\\Danilo\\Programacao\\python\\ImoveisScrapy\\"
-allObjs = []
-for file in [folder + file for file in ["netimoveis.json", "vivareal.json", "zapimoveis.json"]]:
-    with open(file, 'r') as jsonFile:
-        allObjs = allObjs + json.load(jsonFile)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-with open("F:\\Danilo\\Temp\\imoveisBH\\" + "all.json", 'w') as jsonResult:
-    json.dump(allObjs, jsonResult)
+subprocess.run(
+    [sys.executable, str(PROJECT_ROOT / "pipeline" / "merge.py")],
+    cwd=PROJECT_ROOT,
+    check=True,
+)

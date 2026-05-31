@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from scrapers.zap.parser.json_extractors import image_urls_from_image_list
-from scrapers.zap.parser.models import ZapDetailPageMetadata
-from scrapers.zap.parser.normalizers import nested_get
-from scrapers.zap.parser.urls import url_remove_parameters
+from ImoveisScrapy.spiders.utils.json_extractors import image_urls_from_image_list
+from ImoveisScrapy.spiders.utils.models import ZapDetailPageMetadata
+from ImoveisScrapy.spiders.utils.normalizers import nested_get
+from ImoveisScrapy.spiders.utils.urls import url_remove_parameters
 
 
 def price_from_buy_action(cur_imv: dict) -> object | None:
