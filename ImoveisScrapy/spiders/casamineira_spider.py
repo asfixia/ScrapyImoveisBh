@@ -23,10 +23,11 @@ import time
 from datetime import datetime
 from urllib.parse import urljoin
 
+from utils.data_helpers import normalize_tipo, parse_float
 import scrapy
 from botasaurus.request import Request, request
 
-from scrape_output import output_json_path
+from utils.scrape_output import output_json_path
 
 LOG = logging.getLogger(__name__)
 
@@ -257,6 +258,7 @@ def _amount_by_operation(posting: dict, operation_type_id: str) -> float | None:
 def _iptu_amount(posting: dict):
     iptu = posting.get("iptu")
     if iptu is None:
+        #fullDescription = posting.get("descriptionNormalized", None)
         return None
     if isinstance(iptu, dict):
         return iptu.get("amount")
@@ -285,27 +287,27 @@ def posting_to_item(posting: dict) -> dict:
     lng = geo.get("longitude")
 
     ret = (posting.get("realEstateType") or {}) if isinstance(posting.get("realEstateType"), dict) else {}
-    tipo_imovel = ret.get("name")
 
     area = _main_feature(posting, "CFT101") or _main_feature(posting, "CFT100")
 
     return {
-        "id": str(pid) if pid is not None else None,
+        "id": int(parse_float(str(pid) if pid is not None else None, 0)),
         "url": full_url,
         "thumb": _first_thumb_url(posting),
         "aluguel": _amount_by_operation(posting, TIPO_OPERACAO_ALUGUEL),
         "venda": _amount_by_operation(posting, TIPO_OPERACAO_COMPRA),
-        "iptu": _iptu_amount(posting),
-        "condominio": _condominio_amount(posting),
-        "banheiros": _main_feature(posting, "CFT3"),
-        "quartos": _main_feature(posting, "CFT2"),
-        "vagas": _main_feature(posting, "CFT7"),
-        "area": area,
+        "iptu": int(parse_float(_iptu_amount(posting), 0)),
+        "condominio": int(parse_float(_condominio_amount(posting), 0)),
+        "banheiros": int(parse_float(_main_feature(posting, "CFT3"), 0)),
+        "quartos": int(parse_float(_main_feature(posting, "CFT2"), 0)),
+        "vagas": int(parse_float(_main_feature(posting, "CFT7"), 0)),
+        "area": int(parse_float(area, 0)),
         "bairro": locnode.get("name"),
-        "tipo_imovel": tipo_imovel,
+        "tipo_imovel": normalize_tipo(ret.get("name")),
         "endereco": addr.get("name"),
         "lat": lat,
         "long": lng,
+        "payload": json.dumps(posting),
     }
 
 
@@ -363,7 +365,7 @@ def casamineira_listings_via_botasaurus(request_obj: Request, data):
 
         listings = payload.get("listPostings")
         if listings is None:
-            LOG.warning("Page %s: no listPostings key; top-level keys: %s", page, list(payload.keys())[:30] if isinstance(payload, dict) else type(payload),)
+            LOG.warning("Page %s: no listPostings key; top-level keys: %s", page, list(payload.keys())[:30] if isinstance(payload, dict) else type(payload))
             listings = []
 
         if not isinstance(listings, list):

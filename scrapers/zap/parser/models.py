@@ -8,7 +8,7 @@ from dataclasses import dataclass, fields
 from datetime import date
 import math
 
-from zap_parser.normalizers import clean_str, coerce_zap_detail_calendar_date
+from scrapers.zap.parser.normalizers import clean_str, coerce_zap_detail_calendar_date
 
 
 def _format_endereco_line(parts: tuple[str | None, ...]) -> str:

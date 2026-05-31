@@ -1,21 +1,27 @@
+"""QuintoAndar botasaurus scraper."""
+from __future__ import annotations
+
 import json
 import logging
 import math
 import re
+import sys
 import time
 import uuid
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
+
+_ROOT = Path(__file__).resolve().parents[2]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 QuintoAndarSearchType = Literal["RENT", "SALE"]
 
 from botasaurus.request import Request, request
 from botasaurus.soupify import soupify
 
-from scrape_output import output_json_path
-
-from zap_parser import BH_VIEWPORT, MAX_PAGES, ZapMapViewport
+from utils.scrape_output import output_json_path
+from scrapers.zap.parser import BH_VIEWPORT, MAX_PAGES, ZapMapViewport
 
 LOG = logging.getLogger(__name__)
 

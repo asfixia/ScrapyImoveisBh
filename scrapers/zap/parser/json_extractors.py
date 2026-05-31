@@ -9,7 +9,7 @@ from collections.abc import Mapping
 
 from bs4 import BeautifulSoup
 
-from zap_parser.normalizers import (
+from scrapers.zap.parser.normalizers import (
     nested_get,
     to_int,
     zap_amenity_code_to_label,
@@ -233,7 +233,7 @@ def image_urls_from_image_list(image_list: object) -> list[str]:
 
 
 def get_geo_from_json(json_data: dict | None) -> tuple[float, float, str] | None:
-    from zap_parser.normalizers import coerce_lat_lon
+    from scrapers.zap.parser.normalizers import coerce_lat_lon
 
     pd, listing, _, _, _, _ = zap_json_listing_bundle(json_data)
     if not pd:
@@ -250,7 +250,7 @@ def get_geo_from_json(json_data: dict | None) -> tuple[float, float, str] | None
 
 
 def get_area_from_json(json_data: dict | None) -> int | None:
-    from zap_parser.normalizers import parse_first_int
+    from scrapers.zap.parser.normalizers import parse_first_int
 
     pd, _, _, _, _, am = zap_json_listing_bundle(json_data)
     if not pd:

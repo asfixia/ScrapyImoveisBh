@@ -18,12 +18,14 @@ SPIDERS = [
 ]
 
 SPIDER_PYTHON: dict[str, str] = {
-    "ZapImoveis": "zap_botasaurus_client.py",
+    "ZapAluguel": "scrapers/zap/aluguel.py",
+    "ZapVenda": "scrapers/zap/venda.py",
 }
 
 # python <script> — started only after all SPIDERS + SPIDER_PYTHON finish
 AFTER_SPIDER: dict[str, str] = {
-    "MergeImoveis": "json_imoveis_merge.py",
+    "MergeImoveis": "pipeline/merge.py",
+    #"UploadImoveisToDb": "pipeline/upload_to_db.py",
 }
 
 LOG_DIR = PROJECT_ROOT / "logs"
@@ -155,6 +157,14 @@ def _open_log(label: str) -> object:
     return open(LOG_DIR / f"{label}.log", "w", encoding="utf-8")
 
 
+def _subprocess_env() -> dict[str, str]:
+    env = os.environ.copy()
+    pythonpath = str(PROJECT_ROOT)
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{pythonpath}{os.pathsep}{existing}" if existing else pythonpath
+    return env
+
+
 def start_spider(spider_name: str) -> Job:
     print(f"Starting spider: {spider_name}")
     log_file = _open_log(spider_name)
@@ -163,6 +173,7 @@ def start_spider(spider_name: str) -> Job:
         stdout=log_file,
         stderr=subprocess.STDOUT,
         cwd=PROJECT_ROOT,
+        env=_subprocess_env(),
     )
     return spider_name, proc, log_file
 
@@ -179,6 +190,7 @@ def start_python_script(script: str | Path, label: str | None = None) -> Job:
         stdout=log_file,
         stderr=subprocess.STDOUT,
         cwd=PROJECT_ROOT,
+        env=_subprocess_env(),
     )
     return job_label, proc, log_file
 
@@ -208,25 +220,25 @@ def wait_jobs(jobs: list[Job], phase: str) -> list[tuple[str, int]]:
 def main() -> None:
     crawl_jobs: list[Job] = []
 
-    for spider in dict.fromkeys(SPIDERS):
-        if spider_is_running(spider):
-            print(f"{spider} already running — skipped.")
-        else:
-            crawl_jobs.append(start_spider(spider))
-            time.sleep(STAGGER_SECONDS)
+    # for spider in dict.fromkeys(SPIDERS):
+    #     if spider_is_running(spider):
+    #         print(f"{spider} already running — skipped.")
+    #     else:
+    #         crawl_jobs.append(start_spider(spider))
+    #         time.sleep(STAGGER_SECONDS)
 
-    for crawler_name, script in SPIDER_PYTHON.items():
-        if python_script_is_running(script):
-            print(f"{crawler_name} ({script}) already running — skipped.")
-        else:
-            crawl_jobs.append(start_python_script(script, label=crawler_name))
-            time.sleep(STAGGER_SECONDS)
+    # for crawler_name, script in SPIDER_PYTHON.items():
+    #     if python_script_is_running(script):
+    #         print(f"{crawler_name} ({script}) already running — skipped.")
+    #     else:
+    #         crawl_jobs.append(start_python_script(script, label=crawler_name))
+    #         time.sleep(STAGGER_SECONDS)
 
     failed: list[tuple[str, int]] = []
-    if crawl_jobs:
-        failed.extend(wait_jobs(crawl_jobs, "crawl"))
-    else:
-        print("No crawl jobs started (SPIDERS + SPIDER_PYTHON).")
+    # if crawl_jobs:
+    #     failed.extend(wait_jobs(crawl_jobs, "crawl"))
+    # else:
+    #     print("No crawl jobs started (SPIDERS + SPIDER_PYTHON).")
 
     after_jobs: list[Job] = []
     for label, script in AFTER_SPIDER.items():

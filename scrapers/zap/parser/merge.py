@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from zap_parser.json_extractors import image_urls_from_image_list
-from zap_parser.models import ZapDetailPageMetadata
-from zap_parser.normalizers import nested_get
-from zap_parser.urls import url_remove_parameters
+from scrapers.zap.parser.json_extractors import image_urls_from_image_list
+from scrapers.zap.parser.models import ZapDetailPageMetadata
+from scrapers.zap.parser.normalizers import nested_get
+from scrapers.zap.parser.urls import url_remove_parameters
 
 
 def price_from_buy_action(cur_imv: dict) -> object | None:

@@ -6,17 +6,17 @@ from datetime import date
 
 import pytest
 
-from zap_parser.constants import TRANSACAO_ALUGUEL
-from zap_parser.json_extractors import (
+from scrapers.zap.parser.constants import TRANSACAO_ALUGUEL
+from scrapers.zap.parser.json_extractors import (
     get_endereco_numero_from_json,
     get_fotos_from_json,
     get_id_from_json,
 )
-from zap_parser.merge import metadata_from_ld_json_item
-from zap_parser.models import ZapDetailPageMetadata, ZapMapViewport
-from zap_parser.normalizers import nested_get, value_is_absent
-from zap_parser.parser import extract_lat_lon_from_detail_html, parse_detail_page_metadata
-from zap_parser.urls import listing_base_path, page_url, url_remove_parameters
+from scrapers.zap.parser.merge import metadata_from_ld_json_item
+from scrapers.zap.parser.models import ZapDetailPageMetadata, ZapMapViewport
+from scrapers.zap.parser.normalizers import nested_get, value_is_absent
+from scrapers.zap.parser.parser import extract_lat_lon_from_detail_html, parse_detail_page_metadata
+from scrapers.zap.parser.urls import listing_base_path, page_url, url_remove_parameters
 
 
 def test_value_is_absent() -> None:

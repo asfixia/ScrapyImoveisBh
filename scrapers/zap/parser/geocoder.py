@@ -10,7 +10,7 @@ import urllib.error
 import urllib.request
 from urllib.parse import parse_qs, unquote, urlencode, urlparse
 
-from zap_parser.constants import NOMINATIM_USER_AGENT
+from scrapers.zap.parser.constants import NOMINATIM_USER_AGENT
 
 LOG = logging.getLogger(__name__)
 

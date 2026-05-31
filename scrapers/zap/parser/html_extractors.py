@@ -7,8 +7,8 @@ import re
 from bs4 import BeautifulSoup
 from parsel import Selector
 
-from zap_parser.json_extractors import iptu_monthly_from_rental, rental_pricing_info
-from zap_parser.normalizers import (
+from scrapers.zap.parser.json_extractors import iptu_monthly_from_rental, rental_pricing_info
+from scrapers.zap.parser.normalizers import (
     datestr_from_zap_ha_relative_phrase,
     decode_json_string_fragment,
     detail_rsc_value_to_datestr,
@@ -17,7 +17,7 @@ from zap_parser.normalizers import (
     parse_int_digits,
     zap_iso_to_datestr,
 )
-from zap_parser.rsc_extractors import (
+from scrapers.zap.parser.rsc_extractors import (
     html_to_plain_chunk,
     regex_detail_prices_fallback,
     rsc_quoted_field,
@@ -140,7 +140,7 @@ def get_detail_endereco(html: str) -> str | None:
 
 
 def get_detail_preco_aluguel_mensal(html: str) -> int | None:
-    from zap_parser.normalizers import to_int
+    from scrapers.zap.parser.normalizers import to_int
 
     listing = zap_detail_listing_cached(html)
     if listing:
@@ -158,7 +158,7 @@ def get_detail_preco_aluguel_mensal(html: str) -> int | None:
 
 
 def get_detail_preco_condominio_mensal(html: str) -> int | None:
-    from zap_parser.normalizers import to_int
+    from scrapers.zap.parser.normalizers import to_int
 
     listing = zap_detail_listing_cached(html)
     if listing:
@@ -210,7 +210,7 @@ def get_detail_preco_iptu_mensal(html: str) -> int | None:
 
 
 def get_detail_preco_total_previsto_mensal(html: str) -> int | None:
-    from zap_parser.normalizers import to_int
+    from scrapers.zap.parser.normalizers import to_int
 
     listing = zap_detail_listing_cached(html)
     if listing:
