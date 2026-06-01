@@ -6,7 +6,6 @@ import os
 import re
 import shutil
 import sys
-from datetime import datetime
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -21,11 +20,8 @@ from ImoveisScrapy.spiders.utils.data_helpers import (
     parse_int,
     removeInvalidValue,
 )
+from ImoveisScrapy.spiders.utils.scrape_latest import ScrapeLatestFiles
 from ImoveisScrapy.spiders.utils.scrape_output import OUTPUT_DIR
-
-PATTERN = re.compile(
-    r"(?P<date>\d{4}-\d{2}-\d{2}_\d{2}-\d{2})_(?P<site>[a-zA-Z0-9_]+)\.json$"
-)
 
 # Single central output folder — overridden by SCRAPE_OUTPUT_DIR env var.
 _env_dir = os.environ.get("SCRAPE_OUTPUT_DIR", "").strip()
@@ -132,6 +128,29 @@ def parse_netimoveis(data):
         })
     return result
 
+def parse_casamineira(data):
+    result = []
+    for item in data:
+        result.append({
+            "id": parse_int(item.get("id")),
+            "url": item.get("url"),
+            "thumb": item.get("thumb", ""),
+            "aluguel": parse_int(item.get("aluguel", 0)),
+            "venda": parse_int(item.get("venda", 0)),
+            "iptu": parse_int(item.get("iptu", 0)),
+            "condominio": parse_int(item.get("condominio", 0)),
+            "banheiros": parse_int(item.get("banheiros", 0)),
+            "quartos": parse_int(item.get("quartos", 0)),
+            "vagas": parse_int(item.get("vagas", 0)),
+            "area": parse_int(item.get("area", -1)),
+            "tipo_imovel": normalize_tipo(item.get("tipo_imovel", "")),
+            "bairro": item.get("bairro", ""),
+            "endereco": item.get("endereco", ""),
+            "lat": parse_float(item.get("lat")),
+            "lon": parse_float(item.get("long")),
+            "fonte": "casamineira",
+        })
+    return result
 
 def parse_zapimoveis(data):
     result = []
@@ -166,34 +185,19 @@ def parse_zapimoveis(data):
 
 
 # ---------------------------------------------------
-# Find latest file for each site in the central output dir
+# Merge
 # ---------------------------------------------------
 
-def _find_latest_files(output_dir: Path) -> dict[str, dict]:
-    site_latest: dict[str, dict] = {}
-    if not output_dir.exists():
-        return site_latest
-    for file in output_dir.glob("*.json"):
-        match = PATTERN.match(file.name)
-        if not match:
-            continue
-        site = match.group("site").lower()
-        dt = datetime.strptime(match.group("date"), "%Y-%m-%d_%H-%M")
-        if site not in site_latest or dt > site_latest[site]["date"]:
-            site_latest[site] = {"date": dt, "file": file}
-    return site_latest
-
-
 if __name__ == "__main__":
-    site_latest = _find_latest_files(CENTRAL_OUTPUT_DIR)
+    site_latest_paths = ScrapeLatestFiles.find_latest_by_site(CENTRAL_OUTPUT_DIR)
 
     print("Latest files:")
-    for site, info in site_latest.items():
-        print(f"  {site} -> {info['file']}")
+    for site, path in sorted(site_latest_paths.items()):
+        print(f"  {site} -> {path}")
 
     site_jsons: dict[str, object] = {}
-    for site, info in site_latest.items():
-        with open(info["file"], "r", encoding="utf-8") as f:
+    for site, path in site_latest_paths.items():
+        with path.open("r", encoding="utf-8") as f:
             site_jsons[site] = json.load(f)
 
     merged = []
@@ -207,17 +211,11 @@ if __name__ == "__main__":
     if "netimoveis" in site_jsons:
         merged.extend(parse_netimoveis(site_jsons["netimoveis"]))
 
-    # Combine aluguel + venda ZAP; also accept legacy combined file.
-    zap_data: dict = {}
-    for zap_key in ("zapimoveis", "zapimoveis_aluguel", "zapimoveis_venda"):
-        if zap_key in site_jsons:
-            zap_data.update(site_jsons[zap_key])
-    if zap_data:
-        merged.extend(parse_zapimoveis(zap_data))
+    if "zapimoveis" in site_jsons:
+        merged.extend(parse_zapimoveis(site_jsons["zapimoveis"]))
 
     if "casamineira" in site_jsons:
-        raw = site_jsons["casamineira"]
-        merged.extend(raw if isinstance(raw, list) else [])
+        merged.extend(parse_casamineira(site_jsons["casamineira"]))
 
     print(f"\nMerged properties: {len(merged)}")
 
@@ -244,7 +242,8 @@ if __name__ == "__main__":
         dest = Path(dest_str)
         try:
             dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy(output_file_minified, dest)
+            shutil.copy(output_file_minified, str(dest).replace(".json", "_minified.json"))
+            shutil.copy(output_file, dest)
             print(f"Copied to {dest}")
         except Exception as e:
             print(f"Error copying to {dest}: {e}")

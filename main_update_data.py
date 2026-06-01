@@ -6,25 +6,29 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 
 # scrapy crawl <name>
 SPIDERS = [
-    "NetImoveis",
-    "VivaReal",
-    "QuintoAndar",
-    "CasaMineira",
+    #"NetImoveis",
+    #"VivaReal",
+    #"QuintoAndar",
+    #"CasaMineira",
 ]
 
 SPIDER_PYTHON: dict[str, str] = {
-    "ZapImoveis": "ImoveisScrapy/spiders/zapimoveis_scrapy.py",
+    #"ZapImoveis": "ImoveisScrapy/spiders/zapimoveis_scrapy.py",
 }
 
 # python <script> — started only after all SPIDERS + SPIDER_PYTHON finish
 AFTER_SPIDER: dict[str, str] = {
-    "MergeImoveis": "pipeline/merge.py",
-    #"UploadImoveisToDb": "pipeline/upload_to_db.py",
+    #"MergeImoveis": "pipeline/merge.py",
+    "UploadImoveisToDb": "pipeline/upload_to_db.py",
 }
 
 LOG_DIR = PROJECT_ROOT / "logs"

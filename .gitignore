@@ -13,3 +13,4 @@ ImoveisScrapy/.idea/inspectionProfiles/profiles_settings.xml
 .venv
 /deletefiles
 /*.json
+.env

@@ -1,9 +1,38 @@
-import json
 import argparse
+import json
+import os
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Literal, Sequence
+
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+from ImoveisScrapy.spiders.utils.scrape_latest import ScrapeLatestFiles
+
+# CLI flags may be omitted when these environment variables are set (CLI wins if both).
+ENV_DSN = "IMOVEIS_UPLOAD_DSN"
+ENV_QUINTOANDAR = "IMOVEIS_UPLOAD_QUINTOANDAR"
+ENV_CASAMINEIRA = "IMOVEIS_UPLOAD_CASAMINEIRA"
+ENV_NETIMOVEIS = "IMOVEIS_UPLOAD_NETIMOVEIS"
+ENV_VIVAREAL = "IMOVEIS_UPLOAD_VIVAREAL"
+ENV_ZAPIMOVEIS = "IMOVEIS_UPLOAD_ZAPIMOVEIS"
+ENV_TRUNCATE_BEFORE = "IMOVEIS_UPLOAD_TRUNCATE_BEFORE"
+ENV_NO_MERGE = "IMOVEIS_UPLOAD_NO_MERGE"
+
+_TRUTHY_ENV = frozenset({"1", "true", "yes", "on"})
+
+
+def _env_str(name: str) -> str | None:
+    value = os.environ.get(name, "").strip()
+    return value or None
+
+
+def _env_bool(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in _TRUTHY_ENV
 
 import psycopg
 from psycopg.types.json import Json
@@ -1144,8 +1173,18 @@ def insert_zap_imoveis(json_filepath: str, dsn: str, *, table_fqn: str) -> None:
     print(f"Inserted/updated {len(tableRows)} records into {table_fqn}.")
 
 
+def _resolve_provider_path(provider: ProviderStr, explicit: str | None) -> str | None:
+    if explicit:
+        return explicit
+    path = ScrapeLatestFiles.latest_for_provider(provider)
+    if path is None:
+        return None
+    print(f"[upload] {provider}: using latest scrape {path}")
+    return str(path)
+
+
 def _provider_jobs_from_args(args: argparse.Namespace) -> list[tuple[ProviderStr, str]]:
-    """Ordered list of (provider, filepath) for every non-empty CLI path."""
+    """Ordered list of (provider, filepath) for every resolved path (CLI, env, or latest)."""
     pairs: list[tuple[ProviderStr, str | None]] = [
         ("quintoandar", args.quintoandar),
         ("casamineira", args.casamineira),
@@ -1153,69 +1192,111 @@ def _provider_jobs_from_args(args: argparse.Namespace) -> list[tuple[ProviderStr
         ("vivareal", args.vivareal),
         ("zapimoveis", args.zapimoveis),
     ]
-    return [(p, fp) for p, fp in pairs if fp]
+    jobs: list[tuple[ProviderStr, str]] = []
+    for provider, explicit in pairs:
+        resolved = _resolve_provider_path(provider, explicit)
+        if resolved:
+            jobs.append((provider, resolved))
+    return jobs
 
 
-if __name__ == "__main__":
+def _build_upload_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Load scraped JSON into Postgres (schema b_dados). "
-            "Pass one or more --quintoandar/--casamineira/--netimoveis/--vivareal/--zapimoveis "
-            "PATH to run multiple uploads in one invocation."
-        )
+            "Pass one or more provider PATH flags, or set the matching IMOVEIS_UPLOAD_* "
+            "environment variables (see below)."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=f"""
+Environment variables (used when the matching CLI flag is omitted):
+  {ENV_DSN}              PostgreSQL DSN (same as --dsn)
+  {ENV_QUINTOANDAR}      QuintoAndar JSON path (else latest in scrape output dir)
+  {ENV_CASAMINEIRA}      CasaMineira JSON path (else latest)
+  {ENV_NETIMOVEIS}       NetImoveis JSON path (else latest)
+  {ENV_VIVAREAL}         VivaReal JSON path (else latest)
+  {ENV_ZAPIMOVEIS}       ZapImoveis JSON path (else latest; merges split aluguel+venda if needed)
+  {ENV_TRUNCATE_BEFORE}  Set to 1/true/yes/on to enable --truncate-before
+  {ENV_NO_MERGE}         Set to 1/true/yes/on to enable --no-merge
+
+When a provider path is omitted, the newest matching file under SCRAPE_OUTPUT_DIR
+(or ./output/) is used automatically.
+""",
     )
-    #{quote_plus(password)}
-    parser.add_argument("--dsn", required=True, help="PostgreSQL connection string (psycopg).")
+    parser.add_argument(
+        "--dsn",
+        default=_env_str(ENV_DSN),
+        help=f"PostgreSQL connection string (psycopg). Or set {ENV_DSN}.",
+    )
     parser.add_argument(
         "--quintoandar",
         metavar="PATH",
-        default=None,
-        help="JSON export for QuintoAndar (dict keyed by id).",
+        default=_env_str(ENV_QUINTOANDAR),
+        help=f"JSON export for QuintoAndar (dict keyed by id). Or set {ENV_QUINTOANDAR}.",
     )
     parser.add_argument(
         "--casamineira",
         metavar="PATH",
-        default=None,
-        help="JSON export for CasaMineira (array of listing payloads).",
+        default=_env_str(ENV_CASAMINEIRA),
+        help=f"JSON export for CasaMineira (array of listing payloads). Or set {ENV_CASAMINEIRA}.",
     )
     parser.add_argument(
         "--netimoveis",
         metavar="PATH",
-        default=None,
-        help="JSON export for NetImoveis (array of listings).",
+        default=_env_str(ENV_NETIMOVEIS),
+        help=f"JSON export for NetImoveis (array of listings). Or set {ENV_NETIMOVEIS}.",
     )
     parser.add_argument(
         "--vivareal",
         metavar="PATH",
-        default=None,
-        help="JSON export for VivaReal (array of listing payloads).",
+        default=_env_str(ENV_VIVAREAL),
+        help=f"JSON export for VivaReal (array of listing payloads). Or set {ENV_VIVAREAL}.",
     )
     parser.add_argument(
         "--zapimoveis",
         metavar="PATH",
-        default=None,
-        help="JSON export for Zap / ZapImoveis (URL-keyed dict).",
+        default=_env_str(ENV_ZAPIMOVEIS),
+        help=f"JSON export for Zap / ZapImoveis (URL-keyed dict). Or set {ENV_ZAPIMOVEIS}.",
     )
     parser.add_argument(
         "--truncate-before",
         action="store_true",
+        default=_env_bool(ENV_TRUNCATE_BEFORE),
         help=(
             "Before each provider upload, DROP the snapshot table for that file "
-            "(e.g. b_dados.zap_imoveis_2026_05_06_14_18) and recreate it empty."
+            f"(e.g. b_dados.zap_imoveis_2026_05_06_14_18) and recreate it empty. "
+            f"Or set {ENV_TRUNCATE_BEFORE}=1."
         ),
     )
     parser.add_argument(
         "--no-merge",
         action="store_true",
-        help="Skip rebuilding b_dados.imoveis_unificados after uploads.",
+        default=_env_bool(ENV_NO_MERGE),
+        help=(
+            "Skip rebuilding b_dados.imoveis_unificados after uploads. "
+            f"Or set {ENV_NO_MERGE}=1."
+        ),
     )
+    return parser
 
-    args = parser.parse_args()
+
+def main(argv: Sequence[str] | None = None) -> None:
+    parser = _build_upload_parser()
+    args = parser.parse_args(argv)
+
+    if not args.dsn:
+        parser.error(f"--dsn or {ENV_DSN} is required")
+
     jobs = _provider_jobs_from_args(args)
     if not jobs:
         parser.error(
-            "Specify at least one input file: "
-            "--quintoandar PATH, --casamineira PATH, --netimoveis PATH, --vivareal PATH, and/or --zapimoveis PATH"
+            "Specify at least one input file via CLI, environment, or latest scrape in "
+            f"{ScrapeLatestFiles.scrape_output_dir()}: "
+            f"--quintoandar / {ENV_QUINTOANDAR}, "
+            f"--casamineira / {ENV_CASAMINEIRA}, "
+            f"--netimoveis / {ENV_NETIMOVEIS}, "
+            f"--vivareal / {ENV_VIVAREAL}, and/or "
+            f"--zapimoveis / {ENV_ZAPIMOVEIS}"
         )
 
     uploaded: dict[ProviderStr, str] = {}
@@ -1231,6 +1312,10 @@ if __name__ == "__main__":
 
     if uploaded and not args.no_merge:
         create_imoveis_unificados(args.dsn, uploaded)
+
+
+if __name__ == "__main__":
+    main()
 
 
 # DDL templates and merge SQL live in create_provider_snapshot_table() and

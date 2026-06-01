@@ -15,6 +15,15 @@ services:
       SCRAPE_OUTPUT_DIR: /data
       # Optional: copy imoveis_unificados_minified.json to extra paths (comma or semicolon)
       # MERGED_FILE_MINIFIED: /var/www/html/fitrabit/data/imoveis_unificados.json \\recalcards.com\web_html\fitrabit\data\imoveis_unificados.json,/var/www/html/fitrabit/data/imoveis_unificados.json
+      # Optional: pipeline/upload_to_db.py (after merge) — omit paths to auto-use latest file per site in /data
+      # IMOVEIS_UPLOAD_DSN: postgresql://user:pass@host:5432/dbname
+      # IMOVEIS_UPLOAD_QUINTOANDAR: /data/2026-05-31_12-00_quintoandar.json
+      # IMOVEIS_UPLOAD_CASAMINEIRA: /data/2026-05-31_12-00_casamineira.json
+      # IMOVEIS_UPLOAD_NETIMOVEIS: /data/2026-05-31_12-00_netimoveis.json
+      # IMOVEIS_UPLOAD_VIVAREAL: /data/2026-05-31_12-00_vivareal.json
+      # IMOVEIS_UPLOAD_ZAPIMOVEIS: /data/2026-05-31_12-00_zapimoveis.json
+      # IMOVEIS_UPLOAD_TRUNCATE_BEFORE: "1"
+      # IMOVEIS_UPLOAD_NO_MERGE: "0"
     volumes:
       - ./output:/data
       - ./logs:/app/logs
