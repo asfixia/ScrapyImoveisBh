@@ -35,8 +35,63 @@ AFTER_SPIDER: dict[str, str] = {
 LOG_DIR = PROJECT_ROOT / "logs"
 STAGGER_SECONDS = 0.1
 POLL_INTERVAL_SECONDS = 0.5
+# Comma/semicolon-separated crawl labels (SPIDERS + SPIDER_PYTHON keys). Empty = run all.
+CRAWL_LABELS_ENV = "CRAWL_LABELS"
 
 Job = tuple[str, subprocess.Popen[str], threading.Thread, object, Path]
+
+
+def _all_crawl_labels() -> list[str]:
+    return list(SPIDERS) + list(SPIDER_PYTHON)
+
+
+def _crawl_label_lookup() -> dict[str, str]:
+    return {label.casefold(): label for label in _all_crawl_labels()}
+
+
+def _parse_crawl_labels_env() -> list[str] | None:
+    """Return canonical labels from CRAWL_LABELS, or None to run every crawler."""
+    raw = os.environ.get(CRAWL_LABELS_ENV, "").strip()
+    if not raw:
+        return None
+
+    lookup = _crawl_label_lookup()
+    selected: list[str] = []
+    unknown: list[str] = []
+
+    for part in raw.replace(";", ",").split(","):
+        token = part.strip()
+        if not token:
+            continue
+        canonical = lookup.get(token.casefold())
+        if canonical is None:
+            unknown.append(token)
+        elif canonical not in selected:
+            selected.append(canonical)
+
+    if unknown:
+        available = ", ".join(_all_crawl_labels())
+        print(
+            f"Unknown {CRAWL_LABELS_ENV} label(s): {', '.join(unknown)}. "
+            f"Available: {available}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if not selected:
+        print(f"{CRAWL_LABELS_ENV} is set but no labels were parsed.", file=sys.stderr)
+        sys.exit(1)
+
+    return selected
+
+
+def _selected_crawl_labels() -> list[str]:
+    """Labels to run this session (order preserved from SPIDERS then SPIDER_PYTHON)."""
+    filter_labels = _parse_crawl_labels_env()
+    if filter_labels is None:
+        return _all_crawl_labels()
+    allowed = set(filter_labels)
+    return [label for label in _all_crawl_labels() if label in allowed]
 
 
 def spider_is_running(spider_name: str) -> bool:
@@ -365,12 +420,16 @@ def wait_jobs(jobs: list[Job], phase: str) -> list[tuple[str, int]]:
     return failed
 
 
-def _preflight() -> None:
+def _preflight(spiders_to_run: list[str]) -> None:
     """Fail fast when Scrapy/project layout is broken (common in Docker/Linux)."""
     scrapy_cfg = PROJECT_ROOT / "scrapy.cfg"
     if not scrapy_cfg.is_file():
         print(f"Preflight failed: missing {scrapy_cfg}", file=sys.stderr)
         sys.exit(1)
+
+    scrapy_spiders = [name for name in spiders_to_run if name in SPIDERS]
+    if not scrapy_spiders:
+        return
 
     result = subprocess.run(
         [sys.executable, "-u", "-m", "scrapy", "list"],
@@ -387,7 +446,7 @@ def _preflight() -> None:
         sys.exit(1)
 
     listed = set((result.stdout or "").split())
-    missing = [name for name in SPIDERS if name not in listed]
+    missing = [name for name in scrapy_spiders if name not in listed]
     if missing:
         print(
             f"Preflight failed: spider(s) not registered: {', '.join(missing)}",
@@ -399,22 +458,26 @@ def _preflight() -> None:
 
 def main() -> None:
     _configure_stdio()
-    _preflight()
+    crawl_labels = _selected_crawl_labels()
+    if os.environ.get(CRAWL_LABELS_ENV, "").strip():
+        print(f"Crawl labels ({CRAWL_LABELS_ENV}): {', '.join(crawl_labels)}", flush=True)
+    _preflight(crawl_labels)
     crawl_jobs: list[Job] = []
 
-    for spider_name in SPIDERS:
-        if spider_is_running(spider_name):
-            print(f"{spider_name} already running — skipped.", flush=True)
-        else:
-            crawl_jobs.append(start_spider(spider_name))
-            time.sleep(STAGGER_SECONDS)
-
-    for crawler_name, script in SPIDER_PYTHON.items():
-        if python_script_is_running(script):
-            print(f"{crawler_name} ({script}) already running — skipped.", flush=True)
-        else:
-            crawl_jobs.append(start_python_script(script, label=crawler_name))
-            time.sleep(STAGGER_SECONDS)
+    for label in crawl_labels:
+        if label in SPIDERS:
+            if spider_is_running(label):
+                print(f"{label} already running — skipped.", flush=True)
+            else:
+                crawl_jobs.append(start_spider(label))
+                time.sleep(STAGGER_SECONDS)
+        elif label in SPIDER_PYTHON:
+            script = SPIDER_PYTHON[label]
+            if python_script_is_running(script):
+                print(f"{label} ({script}) already running — skipped.", flush=True)
+            else:
+                crawl_jobs.append(start_python_script(script, label=label))
+                time.sleep(STAGGER_SECONDS)
 
     failed: list[tuple[str, int]] = []
     if crawl_jobs:
