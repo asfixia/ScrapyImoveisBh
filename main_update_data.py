@@ -1,11 +1,14 @@
 """Start crawlers/scripts, wait for each phase, then run AFTER_SPIDER jobs."""
 from __future__ import annotations
 
+import json
 import os
+import re
 import subprocess
 import sys
 import threading
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -34,9 +37,18 @@ AFTER_SPIDER: dict[str, str] = {
 
 LOG_DIR = PROJECT_ROOT / "logs"
 STAGGER_SECONDS = 0.1
-MIN_CRAWL_SECONDS = 8.0
-MIN_LOG_BYTES = 120
+MIN_CRAWL_SECONDS = float(os.environ.get("MIN_CRAWL_SECONDS", "30"))
+MIN_LOG_BYTES = 500
+MIN_LOG_LINES = 15
+MIN_OUTPUT_BYTES = 200
+MIN_LISTINGS = int(os.environ.get("MIN_CRAWL_LISTINGS", "1"))
 POLL_INTERVAL_SECONDS = 0.5
+HEARTBEAT_SECONDS = 30.0
+
+WROTE_LISTINGS_RE = re.compile(
+    r"wrote\s+(\d+)\s+(?:unique\s+)?listing",
+    re.IGNORECASE,
+)
 
 CRAWL_LOG_MARKERS = (
     "Scrapy",
@@ -53,7 +65,43 @@ CRAWL_LOG_MARKERS = (
     "NetImoveis",
 )
 
-Job = tuple[str, subprocess.Popen[str], threading.Thread, object, float, Path]
+Job = tuple[str, subprocess.Popen[str], threading.Thread, object, float, Path, "_StreamStats"]
+
+
+@dataclass
+class _StreamStats:
+    lines: int = 0
+    bytes_written: int = 0
+
+
+@dataclass
+class _JobReport:
+    label: str
+    elapsed: float
+    exit_code: int
+    log_path: Path
+    log_lines: int
+    log_bytes: int
+    stream_lines: int
+    output_path: Path | None
+    output_bytes: int
+    listing_count: int | None
+    wrote_in_log: int | None
+
+    def format_summary(self) -> str:
+        output = "none"
+        if self.output_path is not None:
+            output = f"{self.output_path.name} ({self.output_bytes} B"
+            if self.listing_count is not None:
+                output += f", {self.listing_count} listings"
+            output += ")"
+        return (
+            f"log={self.log_lines} lines/{self.log_bytes} B, "
+            f"stream={self.stream_lines} lines, "
+            f"output={output}, "
+            f"exit={self.exit_code}, "
+            f"{self.elapsed:.1f}s"
+        )
 
 
 def spider_is_running(spider_name: str) -> bool:
@@ -191,8 +239,9 @@ def python_script_is_running(script: str | Path) -> bool:
 class _Tee:
     """Forward writes to streams, prefixing each line with [label]."""
 
-    def __init__(self, label: str, *streams: object) -> None:
+    def __init__(self, label: str, stats: _StreamStats, *streams: object) -> None:
         self._prefix = f"[{label}] "
+        self._stats = stats
         self._streams = streams
         self._buffer = ""
 
@@ -207,6 +256,8 @@ class _Tee:
 
     def _write_line(self, line: str) -> None:
         text = f"{self._prefix}{line}\n"
+        self._stats.lines += 1
+        self._stats.bytes_written += len(text.encode("utf-8"))
         for stream in self._streams:
             stream.write(text)
             flush = getattr(stream, "flush", None)
@@ -274,47 +325,120 @@ def _read_log_tail(path: Path, lines: int = 25) -> str:
     return "\n".join(tail) if tail else "(log empty)"
 
 
-def _validate_crawl_job(label: str, log_path: Path, started_at: float, exit_code: int) -> str | None:
-    """Return an error message when exit_code 0 still looks like a no-op run."""
-    if exit_code != 0:
-        return None
+def _log_stats(log_path: Path) -> tuple[int, int]:
+    try:
+        text = log_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return 0, 0
+    lines = text.splitlines()
+    return len(lines), len(text.encode("utf-8"))
 
+
+def _fresh_output_file(label: str, started_at: float) -> tuple[Path | None, int, int | None]:
+    suffix = _output_suffix(label)
+    if not suffix:
+        return None, 0, None
+
+    out_dir = _output_dir()
+    candidates = [
+        path
+        for path in out_dir.glob(f"*_{suffix}.json")
+        if path.stat().st_mtime >= started_at - 2
+    ]
+    if not candidates:
+        return None, 0, None
+
+    newest = max(candidates, key=lambda path: path.stat().st_mtime)
+    raw = newest.read_bytes()
+    listing_count: int | None
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+        listing_count = len(payload) if isinstance(payload, dict) else None
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+        listing_count = None
+    return newest, len(raw), listing_count
+
+
+def _wrote_listings_in_log(log_text: str) -> int | None:
+    counts = [int(match.group(1)) for match in WROTE_LISTINGS_RE.finditer(log_text)]
+    return max(counts) if counts else None
+
+
+def _build_job_report(
+    label: str,
+    log_path: Path,
+    started_at: float,
+    exit_code: int,
+    stats: _StreamStats,
+) -> _JobReport:
     elapsed = time.time() - started_at
+    log_lines, log_bytes = _log_stats(log_path)
+    output_path, output_bytes, listing_count = _fresh_output_file(label, started_at)
     try:
         log_text = log_path.read_text(encoding="utf-8", errors="replace")
-    except OSError as exc:
-        return f"log unreadable ({exc})"
+    except OSError:
+        log_text = ""
+    return _JobReport(
+        label=label,
+        elapsed=elapsed,
+        exit_code=exit_code,
+        log_path=log_path,
+        log_lines=log_lines,
+        log_bytes=log_bytes,
+        stream_lines=stats.lines,
+        output_path=output_path,
+        output_bytes=output_bytes,
+        listing_count=listing_count,
+        wrote_in_log=_wrote_listings_in_log(log_text),
+    )
 
-    if len(log_text.strip()) < MIN_LOG_BYTES:
+
+def _validate_crawl_job(report: _JobReport) -> str | None:
+    """Return an error message when exit_code 0 still looks like a failed crawl."""
+    if report.exit_code != 0:
+        return None
+
+    if report.stream_lines == 0 and report.log_lines == 0:
         return (
-            f"log too short ({len(log_text.strip())} chars, {elapsed:.1f}s) — "
-            "subprocess likely exited before Scrapy/script logging started"
+            "no subprocess output captured — logging pipe may be broken or the "
+            "child process never started"
         )
 
-    if not any(marker in log_text for marker in CRAWL_LOG_MARKERS):
+    if report.log_bytes < MIN_LOG_BYTES or report.log_lines < MIN_LOG_LINES:
+        return (
+            f"log too small ({report.log_lines} lines, {report.log_bytes} B, "
+            f"{report.elapsed:.1f}s)"
+        )
+
+    if not any(marker in report.log_path.read_text(encoding="utf-8", errors="replace") for marker in CRAWL_LOG_MARKERS):
         return "log missing expected crawl markers (Scrapy/spider output)"
 
-    if elapsed < MIN_CRAWL_SECONDS and label in SPIDERS:
-        startup_markers = ("Spider opened", "Started crawler", "CrawlerProcess", "scrapy.extensions")
-        if not any(marker in log_text for marker in startup_markers):
-            return (
-                f"finished in {elapsed:.1f}s without Scrapy startup markers — "
-                "likely immediate exit on Linux/Docker"
-            )
-
-    suffix = _output_suffix(label)
-    if suffix:
-        out_dir = _output_dir()
-        recent = sorted(
-            out_dir.glob(f"*_{suffix}.json"),
-            key=lambda p: p.stat().st_mtime,
-            reverse=True,
+    if report.elapsed < MIN_CRAWL_SECONDS:
+        return (
+            f"finished too fast ({report.elapsed:.1f}s < {MIN_CRAWL_SECONDS:.0f}s) — "
+            "real crawls take longer; likely immediate exit or empty run"
         )
-        if not recent:
-            return f"no output file matching *_{suffix}.json in {out_dir}"
-        newest = recent[0]
-        if newest.stat().st_mtime < started_at - 2:
-            return f"no fresh output file for {label} (latest: {newest.name})"
+
+    if report.output_path is None:
+        suffix = _output_suffix(report.label)
+        return f"no fresh output file *_{suffix}.json written during this run"
+
+    if report.output_bytes < MIN_OUTPUT_BYTES:
+        return (
+            f"output file too small ({report.output_bytes} B): "
+            f"{report.output_path.name}"
+        )
+
+    listings = report.listing_count
+    if listings is not None and listings < MIN_LISTINGS:
+        return f"output has {listings} listing(s), need at least {MIN_LISTINGS}"
+
+    wrote = report.wrote_in_log
+    if wrote is not None and wrote < MIN_LISTINGS:
+        return f"log reports only {wrote} listing(s) written"
+
+    if listings is None and wrote is None and MIN_LISTINGS > 0:
+        return "could not confirm listings in output file or log"
 
     return None
 
@@ -324,8 +448,10 @@ def _start_command(cmd: list[str], label: str) -> Job:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     log_path = _log_path(label)
     log_file = open(log_path, "w", encoding="utf-8", buffering=1)
-    tee = _Tee(label, sys.stdout, log_file)
+    stats = _StreamStats()
+    tee = _Tee(label, stats, sys.stdout, log_file)
     started_at = time.time()
+    print(f"  → log file: {log_path}", flush=True)
     proc = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
@@ -351,7 +477,7 @@ def _start_command(cmd: list[str], label: str) -> Job:
 
     reader = threading.Thread(target=_reader, name=f"log-{label}", daemon=True)
     reader.start()
-    return label, proc, reader, log_file, started_at, log_path
+    return label, proc, reader, log_file, started_at, log_path, stats
 
 
 def start_spider(spider_name: str) -> Job:
@@ -384,6 +510,7 @@ def _finish_job(
     log_file: object,
     started_at: float,
     log_path: Path,
+    stats: _StreamStats,
     phase: str,
 ) -> tuple[str, int] | None:
     exit_code = proc.wait()
@@ -393,15 +520,16 @@ def _finish_job(
     except OSError:
         pass
 
-    elapsed = time.time() - started_at
+    report = _build_job_report(label, log_path, started_at, exit_code, stats)
+    print(f"[{phase}] {label} report: {report.format_summary()}", flush=True)
+
     validation_error = None
     if phase == "crawl":
-        validation_error = _validate_crawl_job(label, log_path, started_at, exit_code)
+        validation_error = _validate_crawl_job(report)
 
     if exit_code != 0:
         print(
-            f"[{phase}] {label} failed with exit code {exit_code} ({elapsed:.0f}s). "
-            f"Log: {log_path}",
+            f"[{phase}] {label} FAILED (exit {exit_code}). See {log_path}",
             file=sys.stderr,
             flush=True,
         )
@@ -410,15 +538,14 @@ def _finish_job(
 
     if validation_error:
         print(
-            f"[{phase}] {label} exited 0 but looks invalid ({validation_error}, {elapsed:.1f}s). "
-            f"Log: {log_path}",
+            f"[{phase}] {label} FAILED: {validation_error}. See {log_path}",
             file=sys.stderr,
             flush=True,
         )
         print(_read_log_tail(log_path), file=sys.stderr, flush=True)
         return label, 1
 
-    print(f"[{phase}] {label} finished OK ({elapsed:.0f}s). Log: {log_path}", flush=True)
+    print(f"[{phase}] {label} OK", flush=True)
     return None
 
 
@@ -429,19 +556,34 @@ def wait_jobs(jobs: list[Job], phase: str) -> list[tuple[str, int]]:
     print(f"Waiting for {len(jobs)} job(s) in phase [{phase}] …", flush=True)
     failed: list[tuple[str, int]] = []
     pending = list(jobs)
+    last_heartbeat = time.time()
 
     while pending:
         still_running: list[Job] = []
         for job in pending:
-            label, proc, reader, log_file, started_at, log_path = job
+            label, proc, reader, log_file, started_at, log_path, stats = job
             if proc.poll() is None:
                 still_running.append(job)
                 continue
-            result = _finish_job(label, proc, reader, log_file, started_at, log_path, phase)
+            result = _finish_job(
+                label, proc, reader, log_file, started_at, log_path, stats, phase
+            )
             if result is not None:
                 failed.append(result)
         pending = still_running
         if pending:
+            now = time.time()
+            if now - last_heartbeat >= HEARTBEAT_SECONDS:
+                for job in pending:
+                    label, proc, _reader, _log_file, started_at, log_path, stats = job
+                    log_lines, log_bytes = _log_stats(log_path)
+                    elapsed = now - started_at
+                    print(
+                        f"[{phase}] {label} still running ({elapsed:.0f}s) — "
+                        f"log {log_lines} lines / {log_bytes} B, stream {stats.lines} lines",
+                        flush=True,
+                    )
+                last_heartbeat = now
             time.sleep(POLL_INTERVAL_SECONDS)
 
     return failed
@@ -481,6 +623,9 @@ def _preflight() -> None:
 
 def main() -> None:
     _configure_stdio()
+    print(f"Project root: {PROJECT_ROOT}", flush=True)
+    print(f"Log directory: {LOG_DIR}", flush=True)
+    print(f"Output directory: {_output_dir()}", flush=True)
     _preflight()
     crawl_jobs: list[Job] = []
 
