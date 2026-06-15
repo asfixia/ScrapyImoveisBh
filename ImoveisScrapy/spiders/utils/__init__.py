@@ -68,7 +68,15 @@ from ImoveisScrapy.spiders.utils.json_extractors import (
     zap_json_listing_bundle,
     zap_page_data_field,
 )
-from ImoveisScrapy.spiders.utils.models import ZapDetailPageMetadata, ZapMapViewport
+from ImoveisScrapy.spiders.utils.models import (
+    CasaMineiraItem,
+    ImoveisScrapyItem,
+    NetImoveisItem,
+    QuintoAndarItem,
+    VivaRealItem,
+    ZapDetailPageMetadata,
+    ZapMapViewport,
+)
 from ImoveisScrapy.spiders.utils.normalizers import (
     format_endereco_zap,
     nested_get as zap_nested_get,

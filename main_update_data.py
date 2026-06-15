@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from dotenv import load_dotenv
@@ -15,26 +16,26 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 
 # scrapy crawl <name>
 SPIDERS = [
-    #"NetImoveis",
-    #"VivaReal",
-    #"QuintoAndar",
-    #"CasaMineira",
+    "NetImoveis",
+    "VivaReal",
+    "QuintoAndar",
+    "CasaMineira",
 ]
 
 SPIDER_PYTHON: dict[str, str] = {
-    #"ZapImoveis": "ImoveisScrapy/spiders/zapimoveis_scrapy.py",
+    "ZapImoveis": "ImoveisScrapy/spiders/zapimoveis_scrapy.py",
 }
 
 # python <script> — started only after all SPIDERS + SPIDER_PYTHON finish
 AFTER_SPIDER: dict[str, str] = {
-    #"MergeImoveis": "pipeline/merge.py",
-    "UploadImoveisToDb": "pipeline/upload_to_db.py",
+    "MergeImoveis": "pipeline/merge.py",
+    #"UploadImoveisToDb": "pipeline/upload_to_db.py",
 }
 
 LOG_DIR = PROJECT_ROOT / "logs"
 STAGGER_SECONDS = 0.1
 
-Job = tuple[str, subprocess.Popen[bytes], object]
+Job = tuple[str, subprocess.Popen[str], threading.Thread, object]
 
 
 def spider_is_running(spider_name: str) -> bool:
@@ -84,6 +85,11 @@ def _count_scrapy_spider_processes_ps(script_body: str, spider_name: str) -> int
     except ValueError:
         return None
 
+def hibernate():
+    subprocess.run(
+        ["shutdown", "/h"],
+        check=True
+    )
 
 def _spider_is_running_windows(spider_name: str) -> bool:
     _PS_CIM_COUNT = """
@@ -155,9 +161,40 @@ def python_script_is_running(script: str | Path) -> bool:
     return result.returncode == 0
 
 
-def _open_log(label: str) -> object:
+class _Tee:
+    """Forward writes to streams, prefixing each line with [label]."""
+
+    def __init__(self, label: str, *streams: object) -> None:
+        self._prefix = f"[{label}] "
+        self._streams = streams
+        self._buffer = ""
+
+    def write(self, data: str) -> int:
+        if not data:
+            return 0
+        self._buffer += data
+        while "\n" in self._buffer:
+            line, self._buffer = self._buffer.split("\n", 1)
+            self._write_line(line)
+        return len(data)
+
+    def _write_line(self, line: str) -> None:
+        text = f"{self._prefix}{line}\n"
+        for stream in self._streams:
+            stream.write(text)
+
+    def flush(self) -> None:
+        if self._buffer:
+            self._write_line(self._buffer)
+            self._buffer = ""
+        for stream in self._streams:
+            stream.flush()
+
+
+def _open_log(label: str) -> tuple[_Tee, object]:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
-    return open(LOG_DIR / f"{label}.log", "w", encoding="utf-8")
+    log_file = open(LOG_DIR / f"{label}.log", "w", encoding="utf-8")
+    return _Tee(label, sys.stdout, log_file), log_file
 
 
 def _subprocess_env() -> dict[str, str]:
@@ -165,20 +202,44 @@ def _subprocess_env() -> dict[str, str]:
     pythonpath = str(PROJECT_ROOT)
     existing = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = f"{pythonpath}{os.pathsep}{existing}" if existing else pythonpath
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    env.setdefault("PYTHONUTF8", "1")
     return env
+
+
+def _start_command(cmd: list[str], label: str) -> Job:
+    """Start a subprocess; stream prefixed lines to stdout and a log file."""
+    tee, log_file = _open_log(label)
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        cwd=PROJECT_ROOT,
+        env=_subprocess_env(),
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        bufsize=1,
+    )
+
+    def _reader() -> None:
+        if proc.stdout is None:
+            return
+        try:
+            for line in proc.stdout:
+                tee.write(line)
+        finally:
+            tee.flush()
+            proc.stdout.close()
+
+    reader = threading.Thread(target=_reader, name=f"log-{label}", daemon=True)
+    reader.start()
+    return label, proc, reader, log_file
 
 
 def start_spider(spider_name: str) -> Job:
     print(f"Starting spider: {spider_name}")
-    log_file = _open_log(spider_name)
-    proc = subprocess.Popen(
-        [sys.executable, "-m", "scrapy", "crawl", spider_name],
-        stdout=log_file,
-        stderr=subprocess.STDOUT,
-        cwd=PROJECT_ROOT,
-        env=_subprocess_env(),
-    )
-    return spider_name, proc, log_file
+    return _start_command([sys.executable, "-m", "scrapy", "crawl", spider_name], spider_name)
 
 
 def start_python_script(script: str | Path, label: str | None = None) -> Job:
@@ -187,15 +248,7 @@ def start_python_script(script: str | Path, label: str | None = None) -> Job:
         raise FileNotFoundError(f"Script not found: {path}")
     job_label = label or path.stem
     print(f"Starting {job_label}: {path.name}")
-    log_file = _open_log(job_label)
-    proc = subprocess.Popen(
-        [sys.executable, str(path)],
-        stdout=log_file,
-        stderr=subprocess.STDOUT,
-        cwd=PROJECT_ROOT,
-        env=_subprocess_env(),
-    )
-    return job_label, proc, log_file
+    return _start_command([sys.executable, str(path)], job_label)
 
 
 def wait_jobs(jobs: list[Job], phase: str) -> list[tuple[str, int]]:
@@ -205,8 +258,9 @@ def wait_jobs(jobs: list[Job], phase: str) -> list[tuple[str, int]]:
     print(f"Waiting for {len(jobs)} job(s) in phase [{phase}] …")
     failed: list[tuple[str, int]] = []
 
-    for label, proc, log_file in jobs:
+    for label, proc, reader, log_file in jobs:
         exit_code = proc.wait()
+        reader.join()
         try:
             log_file.close()
         except OSError:

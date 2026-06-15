@@ -144,19 +144,39 @@ def parse_detail_page_metadata(
         else:
             lat, lon = None, None
 
+    raw_id = get_id_from_json(json_data)
+    try:
+        listing_id = int(str(raw_id)) if raw_id is not None else 0
+    except (TypeError, ValueError):
+        listing_id = 0
+
     out = ZapDetailPageMetadata(
-        aluguel=get_aluguel_from_json(json_data) or get_aluguel(soup),
+        id=listing_id,
+        url=listing_url or "",
+        thumb=(get_fotos_from_json(json_data) or [""])[0],
+        aluguel=int(get_aluguel_from_json(json_data) or get_aluguel(soup) or 0),
         amenidades=get_amenities_from_json(json_data),
         andares=None,
-        area=get_area_from_json(json_data) or get_area(soup),
+        area=int(get_area_from_json(json_data) or get_area(soup) or 0),
         atualizadoHa=get_detail_atualizado_ha_from_json(json_data)
         or get_detail_atualizado_ha(html),
         bairro=get_bairro_from_json(json_data) or get_detail_bairro(html),
-        banheiros=get_banheiros_from_json(json_data) or get_banheiros(soup),
+        banheiros=int(get_banheiros_from_json(json_data) or get_banheiros(soup) or 0),
         cidade=get_cidade_from_json(json_data) or get_detail_cidade(html),
-        compra=None,
-        condominio=get_condominio_from_json(json_data) or get_condominio(soup),
-        detailsUrl=listing_url,
+        endereco=", ".join(
+            filter(
+                None,
+                [
+                    get_endereco_rua_from_json(json_data) or get_detail_endereco_rua(html),
+                    get_endereco_numero_from_json(json_data) or get_detail_endereco_numero(html),
+                    get_bairro_from_json(json_data) or get_detail_bairro(html),
+                    get_cidade_from_json(json_data) or get_detail_cidade(html),
+                    get_estado_from_json(json_data) or get_detail_estado(html),
+                ],
+            )
+        ),
+        venda=0,
+        condominio=int(get_condominio_from_json(json_data) or get_condominio(soup) or 0),
         enderecoNumero=get_endereco_numero_from_json(json_data)
         or get_detail_endereco_numero(html),
         enderecoRua=get_endereco_rua_from_json(json_data) or get_detail_endereco_rua(html),
@@ -164,19 +184,19 @@ def parse_detail_page_metadata(
         externalId=get_external_id_from_json(json_data),
         fotos=get_fotos_from_json(json_data),
         geoSource=geo_src,
-        id=get_id_from_json(json_data),
-        iptu=get_iptu_from_json(json_data) or get_iptu(soup),
+        iptu=int(get_iptu_from_json(json_data) or get_iptu(soup) or 0),
         isAbsoluteLocation=True,
         jsonDetailsData=json_data if isinstance(json_data, dict) else None,
         jsonGeneralData=None,
         jsonPointData=None,
-        lat=lat,
+        lat=lat if lat is not None else 0.0,
         locationId=get_location_id_from_json(json_data),
-        lon=lon,
+        long=lon if lon is not None else 0.0,
         publicadoHa=get_detail_publicado_ha_from_json(json_data) or get_detail_publicado(soup),
-        quartos=get_bedrooms_from_json(json_data),
-        tipoImovel=get_property_type_from_json(json_data),
-        vagas=get_vagas_from_json(json_data) or get_vagas(soup),
+        quartos=int(get_bedrooms_from_json(json_data) or 0),
+        tipo_imovel=get_property_type_from_json(json_data) or "",
+        vagas=int(get_vagas_from_json(json_data) or get_vagas(soup) or 0),
+        payload={},
     )
     return out.merge(json_imv)
 
@@ -262,8 +282,8 @@ def get_imv_list_from_page(
             tmp_data = metadata_from_point_item(cur_imv)
             other = acc_general.get(tmp_data.id) if tmp_data.id else None
             merged = tmp_data.merge(other) if isinstance(other, ZapDetailPageMetadata) else tmp_data
-            if merged.detailsUrl:
-                answer[merged.detailsUrl] = merged
+            if merged.url:
+                answer[merged.url] = merged
         except (KeyError, TypeError, ValueError) as e:
             log_parse_warning(
                 "list_card_point",

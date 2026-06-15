@@ -102,40 +102,115 @@ class ZapMapViewport:
 
 
 @dataclass(slots=True)
-class ZapDetailPageMetadata:
+class ImoveisScrapyItem:
+    id: int
+    url: str
+    thumb: str
+    aluguel: int
+    venda: int
+    iptu: int
+    condominio: int
+    banheiros: int
+    quartos: int
+    vagas: int
+    area: int
+    bairro: str
+    tipo_imovel: str
+    endereco: str
+    lat: float
+    long: float
+    payload: dict
+
+    @classmethod
+    def merge_field_names(cls) -> tuple[str, ...]:
+        """``ImoveisScrapyItem`` fields for unified merge JSON (no ``payload``; ``long`` → ``lon`` in merge)."""
+        skip = frozenset({"payload"})
+        return tuple(f.name for f in fields(cls) if f.name not in skip)
+
+    def __post_init__(self) -> None:
+        for int_field in ("id", "aluguel", "venda", "iptu", "condominio",
+                          "banheiros", "quartos", "vagas", "area"):
+            if getattr(self, int_field, None) is None:
+                object.__setattr__(self, int_field, 0)
+        for float_field in ("lat", "long"):
+            if getattr(self, float_field, None) is None:
+                object.__setattr__(self, float_field, 0.0)
+        for str_field in ("url", "thumb", "bairro", "tipo_imovel", "endereco"):
+            if getattr(self, str_field, None) is None:
+                object.__setattr__(self, str_field, "")
+        if self.payload is None:
+            object.__setattr__(self, "payload", {})
+
+    def to_dict(self) -> dict[str, object]:
+        out: dict[str, object] = {}
+        for f in fields(self):
+            v = getattr(self, f.name)
+            if isinstance(v, date):
+                out[f.name] = v.isoformat()
+            else:
+                out[f.name] = v
+        return out
+
+    def merge(self, other: ImoveisScrapyItem | None) -> ImoveisScrapyItem:
+        """Field-wise coalesce: keep ``self`` when not ``None``; else ``other``."""
+        if other is None:
+            return self
+        merged: dict[str, object] = {}
+        for f in fields(self):
+            name = f.name
+            a = getattr(self, name)
+            b = getattr(other, name)
+            merged[name] = a if a is not None else b
+        return ImoveisScrapyItem(**merged)
+
+
+@dataclass(slots=True)
+class NetImoveisItem(ImoveisScrapyItem):
+    atualizado: str | None = None
+    tem_locacao: int = 0
+    tem_venda: int = 0
+
+
+@dataclass(slots=True)
+class VivaRealItem(ImoveisScrapyItem):
+    titulo: str = ""
+    descricao: str = ""
+    atualizado: str | None = None
+    tem_locacao: int = 0
+    tem_venda: int = 0
+
+
+@dataclass(slots=True)
+class QuintoAndarItem(ImoveisScrapyItem):
+    titulo: str = ""
+    cidade: str | None = None
+    estado: str | None = None
+
+
+@dataclass(slots=True)
+class CasaMineiraItem(ImoveisScrapyItem):
+    pass
+
+@dataclass(slots=True)
+class ZapDetailPageMetadata(ImoveisScrapyItem):
     """Listing fields for list cards and detail enrichment."""
 
-    aluguel: int | None
     amenidades: list[str] | None
     andares: int | None
-    area: int | None
     atualizadoHa: date | None
-    bairro: str | None
-    banheiros: int | None
     cidade: str | None
-    compra: int | None
-    condominio: int | None
-    detailsUrl: str | None
     enderecoNumero: str | None
     enderecoRua: str | None
     estado: str | None
     externalId: str | None
     fotos: list[str] | None
     geoSource: str | None
-    id: str | None
-    iptu: int | None
     isAbsoluteLocation: bool | None
     jsonDetailsData: dict | None
     jsonGeneralData: dict | None
     jsonPointData: dict | None
-    lat: float | None
     locationId: str | None
-    lon: float | None
     publicadoHa: date | None
-    quartos: int | None
-    tipoImovel: str | None
-    vagas: int | None
-    fullJsonData: dict | None
 
     @staticmethod
     def replace_undefined_str(value: object) -> str | None:
@@ -167,6 +242,12 @@ class ZapDetailPageMetadata:
         return ZapDetailPageMetadata(**merged)
 
     def __post_init__(self) -> None:
+        ImoveisScrapyItem.__post_init__(self)
+        if self.id is not None and not isinstance(self.id, int):
+            try:
+                object.__setattr__(self, "id", int(str(self.id)))
+            except (TypeError, ValueError):
+                object.__setattr__(self, "id", 0)
         object.__setattr__(
             self,
             "publicadoHa",
@@ -200,20 +281,3 @@ class ZapDetailPageMetadata:
     def field_names(cls) -> frozenset[str]:
         return frozenset(f.name for f in fields(cls))
 
-    @classmethod
-    def from_mapping(cls, data: Mapping[str, object], *, strict: bool = True) -> ZapDetailPageMetadata:
-        allowed = cls.field_names()
-        keys = frozenset(data.keys())
-        if strict:
-            unknown = keys - allowed
-            if unknown:
-                raise TypeError(
-                    "ZapDetailPageMetadata: unknown field(s) "
-                    f"{sorted(unknown)}; allowed {sorted(allowed)}"
-                )
-        missing = allowed - keys
-        if missing:
-            raise TypeError(
-                "ZapDetailPageMetadata: missing field(s) " f"{sorted(missing)}"
-            )
-        return cls(**{name: data[name] for name in allowed})

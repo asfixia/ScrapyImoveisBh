@@ -22,6 +22,8 @@ import scrapy
 from scrapy.http import HtmlResponse
 import re
 
+from ImoveisScrapy.spiders.utils import NetImoveisItem
+from ImoveisScrapy.spiders.utils.data_helpers import normalize_tipo, parse_int
 from ImoveisScrapy.spiders.utils.scrape_output import output_json_path
 # User-Agent for HTTP requests (no browser)
 DEFAULT_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", "x-requested-with": "XMLHttpRequest"}
@@ -144,25 +146,32 @@ class NetImoveisSpider(scrapy.Spider):
                 continue
             self.seen.add(imvId)
             newOnPage = True
-            item = {
-                "id": imvId,
-                "aluguel": it.get("valorLocacao"),
-                "condominio": it.get("valorCondominio"),
-                "area": it.get("areaRealPrivativa"),
-                "iptu": it.get("valorIptu"),
-                "atualizado": it.get("dataHora"),
-                "venda": it.get("valorImovel"),
-                "tem_locacao": it.get("exibeLocacao"),
-                "tem_venda": it.get("exibeVenda"),
-                "endereco": ", ".join([it.get("siglaEstado", ""), it.get("nomeCidade", ""), it.get("nomeBairro", ""), it.get("tipoLogradouro", ""), it.get("logradouroPublico")]),
-                "vagas": it.get("vagaGaragem", 0) or it.get("vagasGaragem", 0),
-                "quartos": it.get("quartos", 0) + it.get("dce", 0),
-                "banheiros": it.get("banho", 0) + it.get("suites", 0),
-                "lat": it.get("latitude2"),
-                "long": it.get("longitude2"),
-                "url": self.get_url_from_hit(it),
-                "fulljson": json.dumps(it),
-            }
+            item = NetImoveisItem(
+                id=parse_int(imvId),
+                url=self.get_url_from_hit(it) or "",
+                thumb=it.get("nomeArquivoThumb", ""),
+                aluguel=parse_int(it.get("valorLocacao")),
+                venda=parse_int(it.get("valorImovel")),
+                iptu=parse_int(it.get("valorIptu")),
+                condominio=parse_int(it.get("valorCondominio")),
+                banheiros=parse_int(it.get("banho", 0)) + parse_int(it.get("suites", 0)),
+                quartos=parse_int(it.get("quartos", 0)) + parse_int(it.get("dce", 0)),
+                vagas=parse_int(it.get("vagaGaragem") or it.get("vagasGaragem")),
+                area=parse_int(it.get("areaRealPrivativa")),
+                bairro=it.get("nomeBairro", ""),
+                tipo_imovel=normalize_tipo(it.get("tipoImovel1", "")),
+                endereco=", ".join(filter(None, [
+                    it.get("siglaEstado"), it.get("nomeCidade"),
+                    it.get("nomeBairro"), it.get("tipoLogradouro"),
+                    it.get("logradouroPublico"),
+                ])),
+                lat=float(it.get("latitude2") or 0.0),
+                long=float(it.get("longitude2") or 0.0),
+                payload=it,
+                atualizado=it.get("dataHora"),
+                tem_locacao=int(bool(it.get("exibeLocacao"))),
+                tem_venda=int(bool(it.get("exibeVenda"))),
+            ).to_dict()
             self._accumulated_listings.append(item)
             yield item
         if newOnPage:
@@ -180,7 +189,7 @@ class NetImoveisSpider(scrapy.Spider):
         out_path = output_json_path("netimoveis")
         with open(out_path, "w", encoding="utf-8") as fp:
             json.dump(
-                self._accumulated_listings,
+                {str(item["id"]): item for item in self._accumulated_listings},
                 fp,
                 ensure_ascii=False,
                 indent=2,

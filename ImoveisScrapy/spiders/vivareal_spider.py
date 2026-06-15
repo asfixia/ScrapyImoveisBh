@@ -24,15 +24,16 @@ class VivarealBusiness(str, Enum):
 
 import scrapy
 from botasaurus.request import Request, request
+from ImoveisScrapy.spiders.utils import BH_VIEWPORT, VivaRealItem, ZapMapViewport
+from ImoveisScrapy.spiders.utils.data_helpers import normalize_tipo, parse_int
 from ImoveisScrapy.spiders.utils.scrape_output import output_json_path
-from ImoveisScrapy.spiders.utils import BH_VIEWPORT, ZapMapViewport
 
 LOG = logging.getLogger(__name__)
 
 
 # includeFields from working browser request (exact string from curl)
 #_INCLUDE_FIELDS_RAW = "expansion(search(result(listings(listing(expansionType,contractType,listingsCount,propertyDevelopers,sourceId,displayAddressType,amenities,usableAreas,constructionStatus,listingType,description,title,stamps,createdAt,floors,unitTypes,nonActivationReason,providerId,propertyType,unitSubTypes,unitsOnTheFloor,legacyId,id,portal,portals,unitFloor,parkingSpaces,updatedAt,address,suites,publicationType,externalId,bathrooms,usageTypes,totalAreas,advertiserId,advertiserContact,whatsappNumber,bedrooms,acceptExchange,pricingInfos,showPrice,resale,buildings,capacityLimit,status,priceSuggestion,condominiumName,modality,enhancedDevelopment),account(config,id,name,logoUrl,licenseNumber,showAddress,legacyVivarealId,legacyZapId,createdDate,tier,trustScore,totalCountByFilter,totalCountByAdvertiser),medias,accountLink,link,children(id,usableAreas,totalAreas,bedrooms,bathrooms,parkingSpaces,pricingInfos))),totalCount)),fullUriFragments,nearby(search(result(listings(listing(expansionType,contractType,listingsCount,propertyDevelopers,sourceId,displayAddressType,amenities,usableAreas,constructionStatus,listingType,description,title,stamps,createdAt,floors,unitTypes,nonActivationReason,providerId,propertyType,unitSubTypes,unitsOnTheFloor,legacyId,id,portal,portals,unitFloor,parkingSpaces,updatedAt,address,suites,publicationType,externalId,bathrooms,usageTypes,totalAreas,advertiserId,advertiserContact,whatsappNumber,bedrooms,acceptExchange,pricingInfos,showPrice,resale,buildings,capacityLimit,status,priceSuggestion,condominiumName,modality,enhancedDevelopment),account(config,id,name,logoUrl,licenseNumber,showAddress,legacyVivarealId,legacyZapId,createdDate,tier,trustScore,totalCountByFilter,totalCountByAdvertiser),medias,accountLink,link,children(id,usableAreas,totalAreas,bedrooms,bathrooms,parkingSpaces,pricingInfos))),totalCount)),page,search(result(listings(listing(expansionType,contractType,listingsCount,propertyDevelopers,sourceId,displayAddressType,amenities,usableAreas,constructionStatus,listingType,description,title,stamps,createdAt,floors,unitTypes,nonActivationReason,providerId,propertyType,unitSubTypes,unitsOnTheFloor,legacyId,id,portal,portals,unitFloor,parkingSpaces,updatedAt,address,suites,publicationType,externalId,bathrooms,usageTypes,totalAreas,advertiserId,advertiserContact,whatsappNumber,bedrooms,acceptExchange,pricingInfos,showPrice,resale,buildings,capacityLimit,status,priceSuggestion,condominiumName,modality,enhancedDevelopment),account(config,id,name,logoUrl,licenseNumber,showAddress,legacyVivarealId,legacyZapId,createdDate,tier,trustScore,totalCountByFilter,totalCountByAdvertiser),medias,accountLink,link,children(id,usableAreas,totalAreas,bedrooms,bathrooms,parkingSpaces,pricingInfos))),totalCount)"
-_INCLUDE_FIELDS_RAW = "fullUriFragments,page,search(result(listings(listing(expansionType,contractType,listingsCount,propertyDevelopers,sourceId,displayAddressType,amenities,usableAreas,constructionStatus,listingType,description,title,stamps,createdAt,floors,unitTypes,nonActivationReason,providerId,propertyType,unitSubTypes,unitsOnTheFloor,legacyId,id,portal,portals,unitFloor,parkingSpaces,updatedAt,address,suites,publicationType,externalId,bathrooms,usageTypes,totalAreas,advertiserId,advertiserContact,whatsappNumber,bedrooms,acceptExchange,pricingInfos,showPrice,resale,buildings,capacityLimit,status,priceSuggestion,condominiumName,modality,enhancedDevelopment),account(config,id,name,logoUrl,licenseNumber,showAddress,legacyVivarealId,legacyZapId,createdDate,tier,trustScore,totalCountByFilter,totalCountByAdvertiser),medias,accountLink,link,children(id,usableAreas,totalAreas,bedrooms,bathrooms,parkingSpaces,pricingInfos))),totalCount)"
+_INCLUDE_FIELDS_RAW = "maps,fullUriFragments,page,search(result(listings(listing(maps,expansionType,contractType,listingsCount,propertyDevelopers,sourceId,displayAddressType,amenities,usableAreas,constructionStatus,listingType,description,title,stamps,createdAt,floors,unitTypes,nonActivationReason,providerId,propertyType,unitSubTypes,unitsOnTheFloor,legacyId,id,portal,portals,unitFloor,parkingSpaces,updatedAt,address,suites,publicationType,externalId,bathrooms,usageTypes,totalAreas,advertiserId,advertiserContact,whatsappNumber,bedrooms,acceptExchange,pricingInfos,showPrice,resale,buildings,capacityLimit,status,priceSuggestion,condominiumName,modality,enhancedDevelopment),account(config,id,name,logoUrl,licenseNumber,showAddress,legacyVivarealId,legacyZapId,createdDate,tier,trustScore,totalCountByFilter,totalCountByAdvertiser),medias,accountLink,link,children(id,usableAreas,totalAreas,bedrooms,bathrooms,parkingSpaces,pricingInfos))),totalCount)"
 
 
 
@@ -170,7 +171,7 @@ def _get_first_value(seq, default=None):
 
 
 def _get_item(item: dict) -> dict:
-    """Build a single yielded item from the API listing wrapper (listing + link, etc.)."""
+    """Build a VivaRealItem from the API listing wrapper and return as dict."""
     listing = item.get("listing") or {}
     address = listing.get("address") or {}
     map_data = item.get("map") or {}
@@ -183,44 +184,48 @@ def _get_item(item: dict) -> dict:
     lat = lat or map_point.get("lat") or map_point.get("approximateLat")
     lon = lon or map_point.get("lon") or map_point.get("approximateLon")
 
-    # endereco as string (state, city, neighborhood, street, number)
-    endereco_parts = [
-        address.get("stateAcronym") or "",
-        address.get("city") or "",
-        address.get("neighborhood") or "",
-        address.get("street") or "",
-        link_data.get("streetNumber") or "",
-    ]
-    endereco = ", ".join(p for p in endereco_parts if p)
+    endereco = ", ".join(filter(None, [
+        address.get("stateAcronym"),
+        address.get("city"),
+        address.get("neighborhood"),
+        address.get("street"),
+        link_data.get("streetNumber"),
+    ]))
 
-    iptu_monthly = None
+    iptu_monthly = 0
     if rental and rental.get("yearlyIptu") is not None:
         try:
-            iptu_monthly = rental["yearlyIptu"] / 12.0
+            iptu_monthly = int(rental["yearlyIptu"] / 12.0)
         except (TypeError, ZeroDivisionError):
-            iptu_monthly = None
+            iptu_monthly = 0
 
-    return {
-        "id": listing.get("id"),
-        "aluguel": rental.get("price") if rental else None,
-        "condominio": rental.get("monthlyCondoFee") if rental else None,
-        "area": _get_first_value(listing.get("totalAreas") or listing.get("usableAreas")),
-        "iptu": iptu_monthly,
-        "atualizado": listing.get("updatedAt") or listing.get("createdAt"),
-        "venda": sale.get("price") if sale else None,
-        "tem_locacao": 1 if rental else 0,
-        "tem_venda": 1 if sale else 0,
-        "endereco": endereco,
-        "vagas": _get_first_value(listing.get("parkingSpaces")),
-        "quartos": _get_first_value(listing.get("bedrooms")),
-        "banheiros": _get_first_value(listing.get("bathrooms")),
-        "lat": lat,
-        "long": lon,
-        "titulo": listing.get("title") or "",
-        "descricao": listing.get("description") or "",
-        "url": "https://www.vivareal.com.br" + (link.get("href") or ""),
-        "fulljson": json.dumps(item),
-    }
+    medias = listing.get("medias") or []
+    thumb = next((m.get("url", "") for m in medias if m.get("type") == "IMAGE"), "")
+
+    return VivaRealItem(
+        id=parse_int(listing.get("id")),
+        url="https://www.vivareal.com.br" + (link.get("href") or ""),
+        thumb=thumb,
+        aluguel=parse_int(rental.get("price") if rental else 0),
+        venda=parse_int(sale.get("price") if sale else 0),
+        iptu=iptu_monthly,
+        condominio=parse_int(rental.get("monthlyCondoFee") if rental else 0),
+        banheiros=parse_int(_get_first_value(listing.get("bathrooms"))),
+        quartos=parse_int(_get_first_value(listing.get("bedrooms"))),
+        vagas=parse_int(_get_first_value(listing.get("parkingSpaces"))),
+        area=parse_int(_get_first_value(listing.get("usableAreas"), None) or _get_first_value(listing.get("totalAreas"), 0)),
+        bairro=address.get("neighborhood", ""),
+        tipo_imovel=normalize_tipo(_get_first_value(listing.get("unitTypes"))),
+        endereco=endereco,
+        lat=float(lat or 0.0),
+        long=float(lon or 0.0),
+        payload=item,
+        titulo=listing.get("title") or "",
+        descricao=listing.get("description") or "",
+        atualizado=listing.get("updatedAt") or listing.get("createdAt"),
+        tem_locacao=1 if rental else 0,
+        tem_venda=1 if sale else 0,
+    ).to_dict()
 
 
 def _botasaurus_get_with_retry(
@@ -239,31 +244,14 @@ def _botasaurus_get_with_retry(
             code = getattr(answer, "status_code", None)
             if code == 200:
                 return answer
-            LOG.warning(
-                "VivaReal v4 HTTP %s on attempt %s/%s: %s",
-                code,
-                attempt,
-                max_attempts,
-                getattr(answer, "text", "")[:300],
-            )
+            LOG.warning(f"VivaReal v4 HTTP {code} on attempt {attempt}/{max_attempts}: {getattr(answer, 'text', '')[:300]}")
         except (RuntimeError, OSError, TimeoutError) as exc:
             last_exc = exc
-            LOG.warning(
-                "VivaReal v4 request failed on attempt %s/%s: %s",
-                attempt,
-                max_attempts,
-                exc,
-            )
+            LOG.warning(f"VivaReal v4 request failed on attempt {attempt}/{max_attempts}: {exc}")
         if attempt < max_attempts:
             time.sleep(backoff_seconds * attempt)
 
-    LOG.error(
-        "VivaReal v4 GET failed after %s attempts (last HTTP=%s, exc=%s) url=%s",
-        max_attempts,
-        getattr(answer, "status_code", None) if answer is not None else None,
-        last_exc,
-        url,
-    )
+    LOG.error(f"VivaReal v4 GET failed after {max_attempts} attempts (last HTTP={getattr(answer, 'status_code', None) if answer is not None else None}, exc={last_exc}) url={url}")
     return answer
 
 
@@ -428,16 +416,7 @@ def _scrape_vivareal_viewports(
             current_page += 1
             list_url = _vivareal_listing_url(device_id, viewport, page, business=business)
             maps_url = _vivareal_maps_url(device_id, viewport, page, business=business)
-            LOG.info(
-                "[VivaReal page] viewport %s/%s page %s/%s expected %s page %s of %s",
-                vp_idx + 1,
-                len(leaf_viewports),
-                page,
-                qnt_pages,
-                imv_quantity,
-                current_page,
-                total_pages,
-            )
+            LOG.info(f"[VivaReal page] viewport {vp_idx + 1}/{len(leaf_viewports)} page {page}/{qnt_pages} expected {imv_quantity} page {current_page}/{total_pages}")
             list_payload = _load_json_response(
                 _botasaurus_get_with_retry(
                     request_obj,
@@ -465,13 +444,7 @@ def _scrape_vivareal_viewports(
             maps = maps_payload.get("search", {}).get("result", {}).get("maps", [])
             page_items = _merge_listing_and_map_data(listings, maps)
             all_imv_data.update(page_items)
-            LOG.info(
-                "[VivaReal page] listings=%s maps=%s merged_page=%s total_keys=%s",
-                len(listings),
-                len(maps),
-                len(page_items),
-                len(all_imv_data),
-            )
+            LOG.info(f"[VivaReal page] listings={len(listings)} maps={len(maps)} merged_page={len(page_items)} total_keys={len(all_imv_data)}")
             if not listings and not maps:
                 break
             time.sleep(PAGE_DELAY_SMALL)
@@ -496,19 +469,16 @@ class VivaRealSpider(scrapy.Spider):
         self._device_id = str(uuid.uuid4())
 
     def start_requests(self):
-        listings = vivareal_viewport_listing_pages(
-            {
-                "device_id": self._device_id,
-            }
-        )
-        
-        out_path = output_json_path("vivareal")
-        with open(out_path, "w", encoding="utf-8") as fp:
-            json.dump(listings, fp, ensure_ascii=False, indent=2)
-        LOG.info("[VivaReal output] wrote %s listing(s) to %s", len(listings), out_path)
-        for idx, raw_item in enumerate(listings or []):
+        raw_listings = vivareal_viewport_listing_pages({"device_id": self._device_id})
+        items = []
+        for idx, raw_item in enumerate(raw_listings or []):
             try:
-                yield _get_item(raw_item)
+                items.append(_get_item(raw_item))
             except Exception as e:
                 self.logger.warning("VivaReal v4 error: %s, index: %s", e, idx)
-                continue
+
+        out_path = output_json_path("vivareal")
+        with open(out_path, "w", encoding="utf-8") as fp:
+            json.dump({str(item["id"]): item for item in items}, fp, ensure_ascii=False, indent=2)
+        LOG.info("[VivaReal output] wrote %s listing(s) to %s", len(items), out_path)
+        yield from items

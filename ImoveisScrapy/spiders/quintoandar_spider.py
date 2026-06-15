@@ -18,7 +18,8 @@ if str(_ROOT) not in sys.path:
 import scrapy
 from botasaurus.request import Request, request
 
-from ImoveisScrapy.spiders.utils import BH_VIEWPORT, MAX_PAGES, ZapMapViewport
+from ImoveisScrapy.spiders.utils import BH_VIEWPORT, MAX_PAGES, QuintoAndarItem, ZapMapViewport
+from ImoveisScrapy.spiders.utils.data_helpers import normalize_tipo, parse_int
 from ImoveisScrapy.spiders.utils.scrape_output import output_json_path
 
 LOG = logging.getLogger(__name__)
@@ -166,7 +167,7 @@ def _leaf_viewports_under_listing_cap(request_obj: Request, viewport: ZapMapView
     json_payload = get_json_page(request_obj, page=0, page_size=SMALL_PAGE_SIZE, viewport=viewport,
                                   user_id=user_id, device_id=device_id, search_type=search_type)
     total = _get_total_from_json_payload(json_payload)
-    LOG.info("[QuintoAndar split] depth %s viewport %s -> %s imoveis", depth, viewport.as_query_string(), total)
+    LOG.info(f"[QuintoAndar split] depth {depth} viewport {viewport.as_query_string()} -> {total} imoveis")
     if total is None:
         raise RuntimeError(f"Failed to get JSON total on viewport {viewport.as_query_string()}")
     if total == 0:
@@ -202,38 +203,43 @@ def _scrape_quintoandar(request_obj: Request, *, search_type: QuintoAndarSearchT
         page_size = BIG_PAGE_SIZE
         max_pages = min(max(1, math.ceil(imv_quantity / page_size)), MAX_PAGES)
         for page in range(1, max_pages + 1):
-            LOG.info("[QuintoAndar page] viewport %s/%s page %s/%s offset=%s expected=%s",
-                     vp_idx + 1, len(leaf_viewports), page, max_pages, (page - 1) * page_size, imv_quantity)
-            json_payload = get_json_page(request_obj, viewport=viewport, page=page, page_size=page_size,
+            LOG.info(f"[QuintoAndar page] viewport {vp_idx + 1}/{len(leaf_viewports)} page {page}/{max_pages} offset={(page - 1) * page_size} expected={imv_quantity}")
+            json_payload = get_json_page(request_obj, viewport=viewport, page=page-1, page_size=page_size,
                                           user_id=user_id, device_id=device_id, search_type=search_type)
+            time.sleep(5)
             for cur_hit in json_payload.get("hits", {}).get("hits", []):
                 hit = cur_hit.get("_source", {})
                 hit_id = hit.get("id") or int(cur_hit.get("id"))
                 if hit_id in seen_ids:
                     continue
                 seen_ids.add(hit_id)
-                all_imv_data[hit_id] = {
-                    "id": hit_id,
-                    "tipo": hit.get("type"),
-                    "aluguel": hit.get("rent"),
-                    "iptu_condominio": hit.get("iptuPlusCondominium") or ((hit.get("totalCost") or 0) - (hit.get("rent") or 0)),
-                    "area": hit.get("area"),
-                    "venda": hit.get("salePrice"),
-                    "rua": hit.get("address"),
-                    "bairro": hit.get("neighbourhood"),
-                    "cidade": hit.get("city"),
-                    "estado": hit.get("regionName"),
-                    "vagas": hit.get("parkingSpaces"),
-                    "quartos": hit.get("bedrooms"),
-                    "banheiros": hit.get("bathrooms"),
-                    "lat": hit.get("location", {}).get("lat"),
-                    "long": hit.get("location", {}).get("lon"),
-                    "thumb": _get_thumb(hit),
-                    "titulo": hit.get("shortRentDescription") or hit.get("shortSaleDescription") or "",
-                    "url": quint_property_public_url(hit_id, search_type),
-                    "fulljson": json.dumps(hit),
-                }
-            time.sleep(5)
+                iptu_condo = parse_int(hit.get("iptuPlusCondominium") or
+                                       ((hit.get("totalCost") or 0) - (hit.get("rent") or 0)))
+                all_imv_data[hit_id] = QuintoAndarItem(
+                    id=parse_int(hit_id),
+                    url=quint_property_public_url(hit_id, search_type),
+                    thumb=_get_thumb(hit) or "",
+                    aluguel=parse_int(hit.get("rent")),
+                    venda=parse_int(hit.get("salePrice")),
+                    iptu=0,
+                    condominio=iptu_condo,
+                    banheiros=parse_int(hit.get("bathrooms")),
+                    quartos=parse_int(hit.get("bedrooms")),
+                    vagas=parse_int(hit.get("parkingSpaces")),
+                    area=parse_int(hit.get("area")),
+                    bairro=hit.get("neighbourhood", ""),
+                    tipo_imovel=normalize_tipo(hit.get("type")),
+                    endereco=", ".join(filter(None, [
+                        hit.get("regionName"), hit.get("city"),
+                        hit.get("neighbourhood"), hit.get("address"),
+                    ])),
+                    lat=float((hit.get("location") or {}).get("lat") or 0.0),
+                    long=float((hit.get("location") or {}).get("lon") or 0.0),
+                    payload=cur_hit,
+                    titulo=hit.get("shortRentDescription") or hit.get("shortSaleDescription") or "",
+                    cidade=hit.get("city"),
+                    estado=hit.get("regionName"),
+                ).to_dict()
     return all_imv_data
 
 
@@ -247,9 +253,10 @@ def quintoandar_get_items(request_obj: Request, data=None):  # noqa: ARG001
         **_scrape_quintoandar(request_obj, search_type="SALE"),
         **_scrape_quintoandar(request_obj, search_type="RENT"),
     }
+    items = {str(k): v for k, v in all_imv_data.items()}
     out_path = output_json_path("quintoandar")
-    out_path.write_text(json.dumps(all_imv_data, ensure_ascii=False, indent=2), encoding="utf-8")
-    LOG.info("[QuintoAndar] wrote %s listing(s) to %s", len(all_imv_data), out_path)
+    out_path.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+    LOG.info(f"[QuintoAndar] wrote {len(items)} listing(s) to {out_path}")
     return all_imv_data
 
 

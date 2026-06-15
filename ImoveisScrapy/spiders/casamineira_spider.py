@@ -23,7 +23,8 @@ import time
 from datetime import datetime
 from urllib.parse import urljoin
 
-from ImoveisScrapy.spiders.utils.data_helpers import normalize_tipo, parse_float
+from ImoveisScrapy.spiders.utils import CasaMineiraItem
+from ImoveisScrapy.spiders.utils.data_helpers import normalize_tipo, parse_int
 import scrapy
 from botasaurus.request import Request, request
 
@@ -283,32 +284,28 @@ def posting_to_item(posting: dict) -> dict:
     geo_wrap = (loc.get("postingGeolocation") or {}) if isinstance(loc, dict) else {}
     geo = (geo_wrap.get("geolocation") or {}) if isinstance(geo_wrap, dict) else {}
 
-    lat = geo.get("latitude")
-    lng = geo.get("longitude")
-
     ret = (posting.get("realEstateType") or {}) if isinstance(posting.get("realEstateType"), dict) else {}
-
     area = _main_feature(posting, "CFT101") or _main_feature(posting, "CFT100")
 
-    return {
-        "id": int(parse_float(str(pid) if pid is not None else None, 0)),
-        "url": full_url,
-        "thumb": _first_thumb_url(posting),
-        "aluguel": _amount_by_operation(posting, TIPO_OPERACAO_ALUGUEL),
-        "venda": _amount_by_operation(posting, TIPO_OPERACAO_COMPRA),
-        "iptu": int(parse_float(_iptu_amount(posting), 0)),
-        "condominio": int(parse_float(_condominio_amount(posting), 0)),
-        "banheiros": int(parse_float(_main_feature(posting, "CFT3"), 0)),
-        "quartos": int(parse_float(_main_feature(posting, "CFT2"), 0)),
-        "vagas": int(parse_float(_main_feature(posting, "CFT7"), 0)),
-        "area": int(parse_float(area, 0)),
-        "bairro": locnode.get("name"),
-        "tipo_imovel": normalize_tipo(ret.get("name")),
-        "endereco": addr.get("name"),
-        "lat": lat,
-        "long": lng,
-        "payload": json.dumps(posting),
-    }
+    return CasaMineiraItem(
+        id=parse_int(str(pid) if pid is not None else "0"),
+        url=full_url,
+        thumb=_first_thumb_url(posting) or "",
+        aluguel=parse_int(_amount_by_operation(posting, TIPO_OPERACAO_ALUGUEL)),
+        venda=parse_int(_amount_by_operation(posting, TIPO_OPERACAO_COMPRA)),
+        iptu=parse_int(_iptu_amount(posting)),
+        condominio=parse_int(_condominio_amount(posting)),
+        banheiros=parse_int(_main_feature(posting, "CFT3")),
+        quartos=parse_int(_main_feature(posting, "CFT2")),
+        vagas=parse_int(_main_feature(posting, "CFT7")),
+        area=parse_int(area),
+        bairro=locnode.get("name", ""),
+        tipo_imovel=normalize_tipo(ret.get("name")),
+        endereco=addr.get("name", ""),
+        lat=float(geo.get("latitude") or 0.0),
+        long=float(geo.get("longitude") or 0.0),
+        payload=posting,
+    ).to_dict()
 
 
 @request(max_retry=BOTASAURUS_REQUEST_MAX_RETRY)
@@ -433,7 +430,7 @@ class CasaMineiraSpider(scrapy.Spider):
         out_path = output_json_path("casamineira")
         with open(out_path, "w", encoding="utf-8") as fp:
             json.dump(
-                self._accumulated_listings,
+                {str(item["id"]): item for item in self._accumulated_listings},
                 fp,
                 ensure_ascii=False,
                 indent=2,

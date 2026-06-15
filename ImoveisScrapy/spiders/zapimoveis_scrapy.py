@@ -25,7 +25,7 @@ from ImoveisScrapy.spiders.utils import (
     parse_detail_page_metadata,
 )
 from ImoveisScrapy.spiders.utils.urls import api_listings_url
-from ImoveisScrapy.spiders.utils.data_helpers import getFirstValue, normalize_tipo
+from ImoveisScrapy.spiders.utils.merge import metadata_from_glue_listing
 from ImoveisScrapy.spiders.utils.scrape_output import output_json_path
 
 LOG = logging.getLogger(__name__)
@@ -82,6 +82,7 @@ def _leaf_viewports_under_listing_cap(
         return None
     if viewportTotal <= MAX_IMV_PER_VIEWPORT:
         return [(viewport, viewportTotal)]
+    #return [(viewport, viewportTotal)]
     acc: list[tuple[ZapMapViewport, int]] = []
     expected_quantity = math.ceil(viewportTotal / MAX_IMV_PER_VIEWPORT)
     divided_count += expected_quantity
@@ -142,43 +143,10 @@ def _scrape_zap_transaction(request_obj: Request, transacao: str) -> dict[str, Z
                 LOG.warning(f"[ZAP list] {transacao} page {page} stopped: HTTP {glueResp.status_code}")
             else:
                 for curImvJson in glueResp.json().get("search", {}).get("result", {}).get("listings", []):
-                    pricinfInfo = curImvJson.get("listing").get("pricingInfos", None) or []
-                    href = "https://www.zapimoveis.com.br" + curImvJson.get("link", {}).get("href", "")
-                    if href in all_imv_data:
+                    meta = metadata_from_glue_listing(curImvJson)
+                    if not meta.url or meta.url in all_imv_data:
                         continue
-                    listing = curImvJson.get("listing", {})
-                    addr = listing.get("address", {})
-                    point = addr.get("point", {})
-                    all_imv_data[href] = ZapDetailPageMetadata(
-                        aluguel=getFirstValue([p for p in pricinfInfo if p.get("businessType") == "RENTAL"], {}).get("price", 0),
-                        amenidades=listing.get("amenities", []),
-                        andares=getFirstValue(listing.get("floors"), 0),
-                        area=getFirstValue(listing.get("usableAreas"), 0),
-                        atualizadoHa=listing.get("updatedAt"),
-                        bairro=addr.get("neighborhood"),
-                        banheiros=getFirstValue(listing.get("bathrooms")),
-                        cidade=addr.get("city", ""),
-                        compra=None, condominio=None,
-                        detailsUrl=href,
-                        enderecoNumero=None,
-                        enderecoRua=addr.get("street"),
-                        estado=addr.get("stateAcronym"),
-                        externalId=listing.get("externalId"),
-                        fotos=None, geoSource=None,
-                        id=listing.get("id"),
-                        iptu=getFirstValue(pricinfInfo, {}).get("yearlyIptu", 0) / 12,
-                        isAbsoluteLocation=None,
-                        jsonDetailsData=json.dumps(curImvJson, ensure_ascii=False, indent=2),
-                        jsonGeneralData=None, jsonPointData=None,
-                        lat=point.get("lat") or point.get("approximateLat"),
-                        locationId=None,
-                        lon=point.get("lon") or point.get("approximateLon"),
-                        publicadoHa=None,
-                        quartos=getFirstValue(listing.get("bedrooms")),
-                        tipoImovel=normalize_tipo(getFirstValue(listing.get("unitTypes"))),
-                        vagas=getFirstValue(listing.get("parkingSpaces")),
-                        fullJsonData=json.dumps(curImvJson, ensure_ascii=False, indent=0),
-                    )
+                    all_imv_data[meta.url] = meta
                     imv_found += 1
                     total_found += 1
             total_expected = min(total_expected + PAGE_SIZE, imv_quantity)
@@ -195,11 +163,12 @@ def zap_scraper(request_obj: Request, data=None):
     imv_aluguel = _scrape_zap_transaction(request_obj, TRANSACAO_ALUGUEL)
     imv_venda = _scrape_zap_transaction(request_obj, TRANSACAO_VENDA)
 
-    all_imv = {url: imv.to_dict() for url, imv in {**imv_aluguel, **imv_venda}.items()}
+    merged = {**imv_aluguel, **imv_venda}
+    all_imv_dicts = {str(imv.id): imv.to_dict() for imv in merged.values()}
     out_path = output_json_path("zapimoveis")
-    out_path.write_text(json.dumps(all_imv, ensure_ascii=False, indent=2), encoding="utf-8")
-    LOG.info("[ZAP] wrote %s listing(s) to %s", len(all_imv), out_path)
-    return all_imv
+    out_path.write_text(json.dumps(all_imv_dicts, ensure_ascii=False, indent=2), encoding="utf-8")
+    LOG.info("[ZAP] wrote %s listing(s) to %s", len(all_imv_dicts), out_path)
+    return all_imv_dicts
 
 
 if __name__ == "__main__":
