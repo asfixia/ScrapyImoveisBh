@@ -40,13 +40,7 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main_update_data.py scrapy.cfg ./
-COPY pipeline ./pipeline
-COPY ImoveisScrapy ./ImoveisScrapy
-COPY docker ./docker
-
-RUN chmod +x /app/docker/entrypoint.sh /app/docker/run-crawler.sh
-
+# Application code is bind-mounted at runtime (see docker-compose.yml).
 VOLUME ["/data", "/app/logs"]
 
-ENTRYPOINT ["/app/docker/entrypoint.sh"]
+ENTRYPOINT ["sh", "/app/docker/entrypoint.sh"]

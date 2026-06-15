@@ -1,7 +1,10 @@
 # Single container: runs all Scrapy spiders + Python crawlers + merge (main_update_data.py).
 #
+# Rebuild image only when requirements.txt changes:
 #   docker compose build
-#   docker compose run --rm update-data
+#
+# App code is bind-mounted — edit locally and re-run without rebuild:
+#   docker compose up
 #
 # JSON outputs and merged files: ./output → /data
 # Per-job logs: ./logs → /app/logs
@@ -27,5 +30,10 @@ services:
       # IMOVEIS_UPLOAD_TRUNCATE_BEFORE: "1"
       # IMOVEIS_UPLOAD_NO_MERGE: "0"
     volumes:
+      - ./main_update_data.py:/app/main_update_data.py
+      - ./scrapy.cfg:/app/scrapy.cfg
+      - ./pipeline:/app/pipeline
+      - ./ImoveisScrapy:/app/ImoveisScrapy
+      - ./docker:/app/docker
       - ./output:/data
       - ./logs:/app/logs
