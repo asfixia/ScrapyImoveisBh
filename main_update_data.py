@@ -209,6 +209,9 @@ class _Tee:
         text = f"{self._prefix}{line}\n"
         for stream in self._streams:
             stream.write(text)
+            flush = getattr(stream, "flush", None)
+            if flush:
+                flush()
 
     def flush(self) -> None:
         if self._buffer:
@@ -216,6 +219,19 @@ class _Tee:
             self._buffer = ""
         for stream in self._streams:
             stream.flush()
+
+
+def _configure_stdio() -> None:
+    """Line-buffer stdout/stderr so Docker captures job logs as they arrive."""
+    for name in ("stdout", "stderr"):
+        stream = getattr(sys, name)
+        try:
+            stream.reconfigure(line_buffering=True, write_through=True)
+        except (AttributeError, OSError, ValueError):
+            try:
+                stream.reconfigure(line_buffering=True)
+            except (AttributeError, OSError, ValueError):
+                pass
 
 
 def _subprocess_env() -> dict[str, str]:
@@ -307,7 +323,7 @@ def _start_command(cmd: list[str], label: str) -> Job:
     """Start a subprocess; stream prefixed lines to stdout and a log file."""
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     log_path = _log_path(label)
-    log_file = open(log_path, "w", encoding="utf-8")
+    log_file = open(log_path, "w", encoding="utf-8", buffering=1)
     tee = _Tee(label, sys.stdout, log_file)
     started_at = time.time()
     proc = subprocess.Popen(
@@ -328,6 +344,7 @@ def _start_command(cmd: list[str], label: str) -> Job:
         try:
             for line in proc.stdout:
                 tee.write(line)
+                tee.flush()
         finally:
             tee.flush()
             proc.stdout.close()
@@ -338,7 +355,7 @@ def _start_command(cmd: list[str], label: str) -> Job:
 
 
 def start_spider(spider_name: str) -> Job:
-    print(f"Starting spider: {spider_name}")
+    print(f"Starting spider: {spider_name}", flush=True)
     cmd = [
         sys.executable,
         "-u",
@@ -356,7 +373,7 @@ def start_python_script(script: str | Path, label: str | None = None) -> Job:
     if not path.is_file():
         raise FileNotFoundError(f"Script not found: {path}")
     job_label = label or path.stem
-    print(f"Starting {job_label}: {path.name}")
+    print(f"Starting {job_label}: {path.name}", flush=True)
     return _start_command([sys.executable, "-u", str(path)], job_label)
 
 
@@ -386,8 +403,9 @@ def _finish_job(
             f"[{phase}] {label} failed with exit code {exit_code} ({elapsed:.0f}s). "
             f"Log: {log_path}",
             file=sys.stderr,
+            flush=True,
         )
-        print(_read_log_tail(log_path), file=sys.stderr)
+        print(_read_log_tail(log_path), file=sys.stderr, flush=True)
         return label, exit_code if exit_code != 0 else 1
 
     if validation_error:
@@ -395,11 +413,12 @@ def _finish_job(
             f"[{phase}] {label} exited 0 but looks invalid ({validation_error}, {elapsed:.1f}s). "
             f"Log: {log_path}",
             file=sys.stderr,
+            flush=True,
         )
-        print(_read_log_tail(log_path), file=sys.stderr)
+        print(_read_log_tail(log_path), file=sys.stderr, flush=True)
         return label, 1
 
-    print(f"[{phase}] {label} finished OK ({elapsed:.0f}s). Log: {log_path}")
+    print(f"[{phase}] {label} finished OK ({elapsed:.0f}s). Log: {log_path}", flush=True)
     return None
 
 
@@ -407,7 +426,7 @@ def wait_jobs(jobs: list[Job], phase: str) -> list[tuple[str, int]]:
     if not jobs:
         return []
 
-    print(f"Waiting for {len(jobs)} job(s) in phase [{phase}] …")
+    print(f"Waiting for {len(jobs)} job(s) in phase [{phase}] …", flush=True)
     failed: list[tuple[str, int]] = []
     pending = list(jobs)
 
@@ -461,6 +480,7 @@ def _preflight() -> None:
 
 
 def main() -> None:
+    _configure_stdio()
     _preflight()
     crawl_jobs: list[Job] = []
 

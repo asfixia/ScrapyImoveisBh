@@ -14,6 +14,7 @@ services:
       dockerfile: docker/Dockerfile
     environment:
       SCRAPE_OUTPUT_DIR: /data
+      PYTHONUNBUFFERED: "1"
       # Optional: copy imoveis_unificados_minified.json to extra paths (comma or semicolon)
       # MERGED_FILE_MINIFIED: /var/www/html/fitrabit/data/imoveis_unificados.json \\recalcards.com\web_html\fitrabit\data\imoveis_unificados.json,/var/www/html/fitrabit/data/imoveis_unificados.json
       # Optional: pipeline/upload_to_db.py (after merge) — omit paths to auto-use latest file per site in /data
