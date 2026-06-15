@@ -482,3 +482,7 @@ class VivaRealSpider(scrapy.Spider):
             json.dump({str(item["id"]): item for item in items}, fp, ensure_ascii=False, indent=2)
         LOG.info("[VivaReal output] wrote %s listing(s) to %s", len(items), out_path)
         yield from items
+
+    async def start(self):
+        for item in self.start_requests():
+            yield item

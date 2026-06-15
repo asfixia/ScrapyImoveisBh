@@ -70,6 +70,11 @@ class NetImoveisSpider(scrapy.Spider):
         yield self._request_list_page_api(1, transacao="venda")
         yield self._request_list_page_api(1, transacao="locacao")
 
+    async def start(self):
+        # Scrapy 2.16+ calls start() only; keep start_requests() for older versions.
+        for request in self.start_requests():
+            yield request
+
     def _request_list_page_api(self, page: int, transacao: str = "locacao", retry_count: int = 0):
         """Return a plain Scrapy Request for the list page (no browser)."""
         url = BASE_API.format(page=page, transacao=transacao)

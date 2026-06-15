@@ -269,3 +269,7 @@ class QuintoAndarSpider(scrapy.Spider):
         all_imv_data = quintoandar_get_items()
         for imv_data in all_imv_data.values():
             yield imv_data
+
+    async def start(self):
+        for item in self.start_requests():
+            yield item

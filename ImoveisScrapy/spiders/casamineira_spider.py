@@ -426,6 +426,10 @@ class CasaMineiraSpider(scrapy.Spider):
         for it in items:
             yield it
 
+    async def start(self):
+        for item in self.start_requests():
+            yield item
+
     def closed(self, reason):
         out_path = output_json_path("casamineira")
         with open(out_path, "w", encoding="utf-8") as fp:
