@@ -15,7 +15,6 @@ load_dotenv()
 PROJECT_ROOT = Path(__file__).resolve().parent
 #os.environ["CRAWL_LABELS"] = "NetImoveis"
 
-# scrapy crawl <label> — value is output JSON suffix (see scrape_output.output_json_path)
 SPIDERS: dict[str, str] = {
     "NetImoveis": "netimoveis",
     "VivaReal": "vivareal",
