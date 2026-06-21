@@ -37,6 +37,31 @@ ITEM_DELAY_SMALL = 1
 _MAX_VIEWPORT_SPLIT_DEPTH = 24
 
 
+def _write_listings_json(path: Path, listings: dict[str, ZapDetailPageMetadata]) -> int:
+    """Write id-keyed JSON incrementally (one listing at a time) to limit peak memory."""
+    count = 0
+    with path.open("w", encoding="utf-8") as fp:
+        fp.write("{\n")
+        first = True
+        for imv in listings.values():
+            if not first:
+                fp.write(",\n")
+            first = False
+            key = json.dumps(str(imv.id), ensure_ascii=False)
+            inner_lines = json.dumps(
+                imv.to_output_dict(),
+                ensure_ascii=False,
+                indent=2,
+            ).split("\n")
+            fp.write(f"  {key}: {inner_lines[0]}\n")
+            for line in inner_lines[1:-1]:
+                fp.write(f"  {line}\n")
+            fp.write(f"  {inner_lines[-1]}")
+            count += 1
+        fp.write("\n}\n")
+    return count
+
+
 def request_get_with_retry(request_obj: Request, url: str, *, max_attempts: int = 4, backoff_seconds: float = 20.0, **kwargs):
     last_exc: BaseException | None = None
     answer = None
@@ -159,16 +184,32 @@ def _scrape_zap_transaction(request_obj: Request, transacao: str) -> dict[str, Z
 @request(max_retry=5)
 def zap_scraper(request_obj: Request, data=None):
     """Scrape ZAP aluguel and venda listings for BH, writing a single combined JSON file."""
-    from ImoveisScrapy.spiders.utils import TRANSACAO_ALUGUEL, TRANSACAO_VENDA
-    imv_aluguel = _scrape_zap_transaction(request_obj, TRANSACAO_ALUGUEL)
-    imv_venda = _scrape_zap_transaction(request_obj, TRANSACAO_VENDA)
-
-    merged = {**imv_aluguel, **imv_venda}
-    all_imv_dicts = {str(imv.id): imv.to_dict() for imv in merged.values()}
     out_path = output_json_path("zapimoveis")
-    out_path.write_text(json.dumps(all_imv_dicts, ensure_ascii=False, indent=2), encoding="utf-8")
-    LOG.info("[ZAP] wrote %s listing(s) to %s", len(all_imv_dicts), out_path)
-    return all_imv_dicts
+    LOG.info("Saving to %s", out_path)
+    from ImoveisScrapy.spiders.utils import TRANSACAO_ALUGUEL, TRANSACAO_VENDA
+
+    merged: dict[str, ZapDetailPageMetadata] = {}
+    for transacao in (TRANSACAO_ALUGUEL, TRANSACAO_VENDA):
+        LOG.info(f"[ZAP] scraping {transacao}")
+        batch = _scrape_zap_transaction(request_obj, transacao)
+        LOG.info(f"[ZAP] collected {len(batch)} listing(s) for {transacao}")
+        merged.update(batch)
+        LOG.info(f"[ZAP] merged {len(merged)} listing(s) for {transacao}")
+        del batch
+    LOG.info("[ZAP] collected %s listing(s)", len(merged))
+
+    all_imv_dicts = {str(imv.id): imv.to_output_dict() for imv in merged.values()}
+    merged.clear()
+    LOG.info("[ZAP] - put in an object")
+    with out_path.open("w", encoding="utf-8") as fp:
+        json.dump(all_imv_dicts, fp, ensure_ascii=False, indent=2)
+    count = len(all_imv_dicts)
+    all_imv_dicts.clear()
+    LOG.info("[ZAP] wrote %s listing(s) to %s", count, out_path)
+    #count = _write_listings_json(out_path, merged)
+    #LOG.info("[ZAP] wrote %s listing(s) to %s", count, out_path)
+    #merged.clear()
+    return count
 
 
 if __name__ == "__main__":
