@@ -15,6 +15,7 @@ load_dotenv()
 PROJECT_ROOT = Path(__file__).resolve().parent
 #os.environ["CRAWL_LABELS"] = "NetImoveis"
 
+# scrapy crawl <label> — value is output JSON suffix (see scrape_output.output_json_path)
 SPIDERS: dict[str, str] = {
     "NetImoveis": "netimoveis",
     "VivaReal": "vivareal",
@@ -64,6 +65,8 @@ def _parse_crawl_labels_env() -> list[str] | None:
         if not token:
             continue
         canonical = lookup.get(token.casefold())
+        if token.casefold() == "none":
+            return []
         if canonical is None:
             unknown.append(token)
         elif canonical not in selected:
