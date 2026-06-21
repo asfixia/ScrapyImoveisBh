@@ -19,10 +19,11 @@ services:
       SCRAPE_OUTPUT_DIR: /data
       PYTHONUNBUFFERED: "1"
       # Crawl subset only (comma/semicolon; case-insensitive). Omit = run all.
-      #CRAWL_LABELS: NetImoveis,VivaReal,QuintoAndar,CasaMineira,ZapImoveis
+      #CRAWL_LABELS: NetImoveis,VivaReal,QuintoAndar,CasaMineira,ZapImoveis or "none" or ""
       #CRAWL_LABELS: NetImoveis
+      CRAWL_LABELS: "none"
       # Optional: copy imoveis_unificados_minified.json to extra paths (comma or semicolon)
-      MERGED_FILE_MINIFIED: /var/www/html/fitrabit/data/imoveis_unificados.json,\\recalcards.com\web_html\fitrabit\data\imoveis_unificados.json,/var/www/html/fitrabit/data/imoveis_unificados.json
+      MERGED_FILE_MINIFIED: /output1/imoveis_unificados.json
       # Optional: pipeline/upload_to_db.py (after merge) — omit paths to auto-use latest file per site in /data
       # IMOVEIS_UPLOAD_DSN: postgresql://user:pass@host:5432/dbname
       # IMOVEIS_UPLOAD_QUINTOANDAR: /data/2026-05-31_12-00_quintoandar.json
@@ -33,6 +34,7 @@ services:
       # IMOVEIS_UPLOAD_TRUNCATE_BEFORE: "1"
       # IMOVEIS_UPLOAD_NO_MERGE: "0"
     volumes:
+      - ./output1:/var/www/html/fitrabit/data
       - ./main_update_data.py:/app/main_update_data.py
       - ./scrapy.cfg:/app/scrapy.cfg
       - ./pipeline:/app/pipeline
