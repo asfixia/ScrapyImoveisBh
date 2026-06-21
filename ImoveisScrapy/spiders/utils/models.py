@@ -151,6 +151,17 @@ class ImoveisScrapyItem:
                 out[f.name] = v
         return out
 
+    def to_output_dict(self) -> dict[str, object]:
+        """Merge-compatible scrape JSON fields only (no ``payload`` or raw API blobs)."""
+        out: dict[str, object] = {}
+        for name in self.merge_field_names():
+            v = getattr(self, name)
+            if isinstance(v, date):
+                out[name] = v.isoformat()
+            else:
+                out[name] = v
+        return out
+
     def merge(self, other: ImoveisScrapyItem | None) -> ImoveisScrapyItem:
         """Field-wise coalesce: keep ``self`` when not ``None``; else ``other``."""
         if other is None:
