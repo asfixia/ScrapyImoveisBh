@@ -33,6 +33,7 @@ services:
       # IMOVEIS_UPLOAD_ZAPIMOVEIS: /data/2026-05-31_12-00_zapimoveis.json
       # IMOVEIS_UPLOAD_TRUNCATE_BEFORE: "1"
       # IMOVEIS_UPLOAD_NO_MERGE: "0"
+      #IMOVEIS_UPLOAD_DSN: "postgresql://postgres:password@address.com:5432/fitrabit"
     volumes:
       - ./output1:/var/www/html/fitrabit/data
       - ./main_update_data.py:/app/main_update_data.py

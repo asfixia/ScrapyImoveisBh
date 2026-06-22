@@ -24,9 +24,8 @@ CENTRAL_OUTPUT_DIR: Path = Path(_env_dir) if _env_dir else OUTPUT_DIR
 
 def _to_merged(item: dict, fonte: str) -> dict:
     """Extract standard fields from a spider's to_dict() output, add fonte, drop payload."""
-    out = {k: item.get(k) for k in ImoveisScrapyItem.merge_field_names()}
-    # ImoveisScrapyItem uses "long" for longitude; merge output uses "lon"
-    out["lon"] = item.get("long") or item.get("lon")
+    out = {k: item.get(k) for k in ImoveisScrapyItem.merge_field_names() if k != "long"}
+    out["lon"] = item.get("lon")
     out['thumb'] = out['thumb'].replace("action={action}&dimension={width}x{height}", "action=fit-in&dimension=614x297")
     out["fonte"] = fonte
     return out

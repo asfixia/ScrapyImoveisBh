@@ -30,7 +30,7 @@ SPIDER_PYTHON: dict[str, str] = {
 # python <script> — started only after all SPIDERS + SPIDER_PYTHON finish
 AFTER_SPIDER: dict[str, str] = {
     "MergeImoveis": "pipeline/merge.py",
-    #"UploadImoveisToDb": "pipeline/upload_to_db.py",
+    "UploadImoveisToDb": "pipeline/upload_to_db.py",
 }
 
 LOG_DIR = PROJECT_ROOT / "logs"

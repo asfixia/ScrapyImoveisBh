@@ -6,6 +6,7 @@ import logging
 import math
 import sys
 import time
+from datetime import date
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[2]
@@ -26,7 +27,15 @@ from ImoveisScrapy.spiders.utils import (
 )
 from ImoveisScrapy.spiders.utils.urls import api_listings_url
 from ImoveisScrapy.spiders.utils.merge import metadata_from_glue_listing
+from ImoveisScrapy.spiders.utils.models import ImoveisScrapyItem
 from ImoveisScrapy.spiders.utils.scrape_output import output_json_path
+
+try:
+    from botasaurus_requests.exceptions import ClientException as _ClientException
+except ImportError:
+    _ClientException = type("_ClientException", (Exception,), {})
+
+_REQUEST_RETRY_ERRORS = (RuntimeError, OSError, TimeoutError, _ClientException)
 
 LOG = logging.getLogger(__name__)
 
@@ -35,6 +44,18 @@ PAGE_DELAY_SMALL = 3
 PAGE_SIZE = 30
 ITEM_DELAY_SMALL = 1
 _MAX_VIEWPORT_SPLIT_DEPTH = 24
+
+
+def _listing_output_dict(imv: ZapDetailPageMetadata) -> dict[str, object]:
+    """Merge-compatible fields only (no payload / raw API blobs)."""
+    out: dict[str, object] = {}
+    for name in ImoveisScrapyItem.merge_field_names():
+        v = getattr(imv, name)
+        if isinstance(v, date):
+            out[name] = v.isoformat()
+        else:
+            out[name] = v
+    return out
 
 
 def _write_listings_json(path: Path, listings: dict[str, ZapDetailPageMetadata]) -> int:
@@ -49,7 +70,7 @@ def _write_listings_json(path: Path, listings: dict[str, ZapDetailPageMetadata])
             first = False
             key = json.dumps(str(imv.id), ensure_ascii=False)
             inner_lines = json.dumps(
-                imv.to_output_dict(),
+                _listing_output_dict(imv),
                 ensure_ascii=False,
                 indent=2,
             ).split("\n")
@@ -73,7 +94,7 @@ def request_get_with_retry(request_obj: Request, url: str, *, max_attempts: int 
                 LOG.warning(f"HTTP {code} on attempt {attempt} for {url}")
                 raise RuntimeError(f"HTTP {code} on attempt {attempt} for {url}")
             return answer
-        except (RuntimeError, OSError, TimeoutError) as exc:
+        except _REQUEST_RETRY_ERRORS as exc:
             last_exc = exc
             if attempt >= max_attempts:
                 break
@@ -157,15 +178,32 @@ def _scrape_zap_transaction(request_obj: Request, transacao: str) -> dict[str, Z
                     LOG.warning(f"[ZAP list] {transacao} page {page} stopped: HTTP {resp.status_code}")
                     break
             imv_found = 0
-            glueResp = request_obj.get(
-                api_listings_url(user=resp.cookies.get("z_user_id"), page=page + 1, size=PAGE_SIZE,
-                                 listFrom=total_expected, viewport=leaf_vp, transacao=transacao),
-                timeout=30,
-                headers={"referer": list_url, "Origin": "https://www.zapimoveis.com.br", "X-Domain": ".zapimoveis.com.br"},
+            glueResp = request_get_with_retry(
+                request_obj,
+                api_listings_url(
+                    user=resp.cookies.get("z_user_id"),
+                    page=page + 1,
+                    size=PAGE_SIZE,
+                    listFrom=total_expected,
+                    viewport=leaf_vp,
+                    transacao=transacao,
+                ),
+                max_attempts=4,
+                timeout=60,
+                headers={
+                    "referer": list_url,
+                    "Origin": "https://www.zapimoveis.com.br",
+                    "X-Domain": ".zapimoveis.com.br",
+                },
             )
             time.sleep(ITEM_DELAY_SMALL)
-            if glueResp.status_code != 200:
-                LOG.warning(f"[ZAP list] {transacao} page {page} stopped: HTTP {glueResp.status_code}")
+            if glueResp is None or glueResp.status_code != 200:
+                LOG.warning(
+                    "[ZAP list] %s page %s stopped: HTTP %s",
+                    transacao,
+                    page,
+                    getattr(glueResp, "status_code", None),
+                )
             else:
                 for curImvJson in glueResp.json().get("search", {}).get("result", {}).get("listings", []):
                     meta = metadata_from_glue_listing(curImvJson)
@@ -181,7 +219,7 @@ def _scrape_zap_transaction(request_obj: Request, transacao: str) -> dict[str, Z
     return all_imv_data
 
 
-@request(max_retry=5)
+@request(max_retry=1)
 def zap_scraper(request_obj: Request, data=None):
     """Scrape ZAP aluguel and venda listings for BH, writing a single combined JSON file."""
     out_path = output_json_path("zapimoveis")
@@ -190,25 +228,17 @@ def zap_scraper(request_obj: Request, data=None):
 
     merged: dict[str, ZapDetailPageMetadata] = {}
     for transacao in (TRANSACAO_ALUGUEL, TRANSACAO_VENDA):
-        LOG.info(f"[ZAP] scraping {transacao}")
+        LOG.info("[ZAP] scraping %s", transacao)
         batch = _scrape_zap_transaction(request_obj, transacao)
-        LOG.info(f"[ZAP] collected {len(batch)} listing(s) for {transacao}")
+        LOG.info("[ZAP] collected %s listing(s) for %s", len(batch), transacao)
         merged.update(batch)
-        LOG.info(f"[ZAP] merged {len(merged)} listing(s) for {transacao}")
+        LOG.info("[ZAP] merged total %s listing(s)", len(merged))
         del batch
     LOG.info("[ZAP] collected %s listing(s)", len(merged))
 
-    all_imv_dicts = {str(imv.id): imv.to_output_dict() for imv in merged.values()}
+    count = _write_listings_json(out_path, merged)
     merged.clear()
-    LOG.info("[ZAP] - put in an object")
-    with out_path.open("w", encoding="utf-8") as fp:
-        json.dump(all_imv_dicts, fp, ensure_ascii=False, indent=2)
-    count = len(all_imv_dicts)
-    all_imv_dicts.clear()
     LOG.info("[ZAP] wrote %s listing(s) to %s", count, out_path)
-    #count = _write_listings_json(out_path, merged)
-    #LOG.info("[ZAP] wrote %s listing(s) to %s", count, out_path)
-    #merged.clear()
     return count
 
 
