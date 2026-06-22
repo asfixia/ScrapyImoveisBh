@@ -40,6 +40,9 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# upload_to_db.py — separate layer so rebuild picks this up even when requirements layer is cached
+RUN pip install --no-cache-dir "psycopg[binary]>=3.1.0"
+
 # Application code is bind-mounted at runtime (see docker-compose.yml).
 VOLUME ["/data", "/app/logs"]
 

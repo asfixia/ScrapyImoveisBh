@@ -1,7 +1,9 @@
 # Single container: runs all Scrapy spiders + Python crawlers + merge (main_update_data.py).
 #
-# Rebuild image only when requirements.txt changes:
+# Rebuild image when requirements.txt or docker/Dockerfile changes:
 #   docker compose build
+# If deps were added but build still says CACHED, force:
+#   docker compose build --no-cache
 #
 # App code is bind-mounted — edit locally and re-run without rebuild:
 #   docker compose up
