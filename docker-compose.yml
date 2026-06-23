@@ -22,8 +22,8 @@ services:
       PYTHONUNBUFFERED: "1"
       # Crawl subset only (comma/semicolon; case-insensitive). Omit = run all.
       #CRAWL_LABELS: NetImoveis,VivaReal,QuintoAndar,CasaMineira,ZapImoveis or "none" or ""
-      #CRAWL_LABELS: NetImoveis
-      CRAWL_LABELS: "none"
+      CRAWL_LABELS: NetImoveis,VivaReal,QuintoAndar,CasaMineira,ZapImoveis
+      #CRAWL_LABELS: "none"
       # Optional: copy imoveis_unificados_minified.json to extra paths (comma or semicolon)
       MERGED_FILE_MINIFIED: /output1/imoveis_unificados.json
       # Optional: pipeline/upload_to_db.py (after merge) — omit paths to auto-use latest file per site in /data
@@ -33,7 +33,7 @@ services:
       # IMOVEIS_UPLOAD_NETIMOVEIS: /data/2026-05-31_12-00_netimoveis.json
       # IMOVEIS_UPLOAD_VIVAREAL: /data/2026-05-31_12-00_vivareal.json
       # IMOVEIS_UPLOAD_ZAPIMOVEIS: /data/2026-05-31_12-00_zapimoveis.json
-      # IMOVEIS_UPLOAD_TRUNCATE_BEFORE: "1"
+      IMOVEIS_UPLOAD_TRUNCATE_BEFORE: "0"
       # IMOVEIS_UPLOAD_NO_MERGE: "0"
       #IMOVEIS_UPLOAD_DSN: "postgresql://postgres:password@address.com:5432/fitrabit"
     volumes:

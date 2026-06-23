@@ -17,19 +17,19 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 
 # scrapy crawl <label> — value is output JSON suffix (see scrape_output.output_json_path)
 SPIDERS: dict[str, str] = {
-    #"NetImoveis": "netimoveis",
-    #"VivaReal": "vivareal",
-    #"QuintoAndar": "quintoandar",
-    #"CasaMineira": "casamineira",
+    "NetImoveis": "netimoveis",
+    "VivaReal": "vivareal",
+    "QuintoAndar": "quintoandar",
+    "CasaMineira": "casamineira",
 }
 
 SPIDER_PYTHON: dict[str, str] = {
-    #"ZapImoveis": "ImoveisScrapy/spiders/zapimoveis_scrapy.py",
+    "ZapImoveis": "ImoveisScrapy/spiders/zapimoveis_scrapy.py",
 }
 
 # python <script> — started only after all SPIDERS + SPIDER_PYTHON finish
 AFTER_SPIDER: dict[str, str] = {
-    #"MergeImoveis": "pipeline/merge.py",
+    "MergeImoveis": "pipeline/merge.py",
     #"UploadImoveisToDb": "pipeline/upload_to_db.py",
     "UploadImoveisStamped": "pipeline/upload_imoveis_stamped.py",
 }
