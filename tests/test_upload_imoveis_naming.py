@@ -12,6 +12,73 @@ from pipeline.upload_to_db import (
 )
 
 
+def test_scrapy_date_from_json_path() -> None:
+    from pipeline.upload_to_db import scrapy_date_from_json_path
+
+    assert (
+        scrapy_date_from_json_path(Path("2026-06-01_02-25_quintoandar.json"))
+        == "2026-06-01_02-25"
+    )
+
+
+def test_parse_scrapy_date() -> None:
+    from datetime import datetime
+
+    from pipeline.upload_to_db import parse_scrapy_date, scrapy_date_to_stamp
+
+    dt = datetime(2026, 6, 1, 2, 25)
+    assert parse_scrapy_date("2026-06-01_02-25") == dt
+    assert scrapy_date_to_stamp(dt) == "2026-06-01_02-25"
+
+
+def test_source_key_from_json_path() -> None:
+    from pipeline.upload_imoveis_stamped import source_key_from_json_path
+
+    path = Path("2026-06-01_02-25_quintoandar.json")
+    assert source_key_from_json_path(path) == ("2026-06-01_02-25", "quintoandar")
+
+    path2 = Path("2026-06-01_02-25_zapimoveis.json")
+    assert source_key_from_json_path(path2) == ("2026-06-01_02-25", "zapimoveis")
+    assert source_key_from_json_path(path) != source_key_from_json_path(path2)
+
+
+def test_build_stamped_row() -> None:
+    from datetime import datetime
+
+    from pipeline.upload_imoveis_stamped import build_stamped_row, build_stamped_uid
+
+    merged = {
+        "id": 1,
+        "url": "u",
+        "thumb": "",
+        "aluguel": 0,
+        "venda": 0,
+        "iptu": 0,
+        "condominio": 0,
+        "banheiros": 0,
+        "quartos": 0,
+        "vagas": 0,
+        "area": 0,
+        "bairro": "",
+        "tipo_imovel": "",
+        "endereco": "",
+        "lat": 0.0,
+        "lon": 0.0,
+        "fonte": "quintoandar",
+    }
+    scrapy_date_stamp = "2026-06-01_02-25"
+    row = build_stamped_row(merged, {"id": 1}, scrapy_date_stamp)
+    assert row["scrapy_date"] == datetime(2026, 6, 1, 2, 25)
+    assert row["uid"] == build_stamped_uid(1, "quintoandar", scrapy_date_stamp)
+    assert row["uid"] == "1_quintoandar_2026-06-01_02-25"
+
+
+def test_stamped_table_fqn() -> None:
+    from pipeline.upload_imoveis_stamped import stamped_table_fqn
+
+    assert stamped_table_fqn() == "b_dados.imoveis_stamped"
+
+
 def test_table_name_from_quintoandar_filename() -> None:
     path = Path("2026-06-20_21-14_quintoandar.json")
     assert table_name_from_json_path(path) == "quintoandar_2026_06_20_21_14"

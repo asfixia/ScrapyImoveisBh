@@ -89,6 +89,33 @@ def _sanitize_pg_identifier(value: str) -> str:
     return value[:63]
 
 
+def scrapy_date_from_json_path(path: Path) -> str:
+    """Scrape timestamp stamp from filename (e.g. ``2026-06-01_02-25``)."""
+    match = SCRAPE_JSON_PATTERN.match(path.name)
+    if not match:
+        raise ValueError(f"Unrecognized scrape JSON filename: {path.name}")
+    return match.group("date")
+
+
+def parse_scrapy_date(stamp: str):
+    """Parse filename stamp ``YYYY-MM-DD_HH-MM`` to a naive datetime."""
+    from datetime import datetime
+
+    try:
+        return datetime.strptime(stamp, "%Y-%m-%d_%H-%M")
+    except ValueError as exc:
+        raise ValueError(f"Invalid scrapy_date stamp {stamp!r} (expected YYYY-MM-DD_HH-MM)") from exc
+
+
+def scrapy_date_to_stamp(value) -> str:
+    """Format a ``scrapy_date`` value back to filename stamp ``YYYY-MM-DD_HH-MM``."""
+    return value.strftime("%Y-%m-%d_%H-%M")
+
+
+# Backward-compatible alias
+scrapy_data_from_json_path = scrapy_date_from_json_path
+
+
 def site_from_json_path(path: Path) -> ProviderStr:
     match = SCRAPE_JSON_PATTERN.match(path.name)
     if not match:
